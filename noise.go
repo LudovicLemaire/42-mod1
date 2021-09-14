@@ -1,13 +1,21 @@
 package main
 
 import (
+	"fmt"
 	"math"
+
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 type Vector3 struct {
 	x float64
 	y float64
 	z float64
+}
+
+type Vector2 struct {
+	x float64
+	y float64
 }
 
 type SimplexDt struct {
@@ -30,6 +38,10 @@ var grad3 = [12]Vector3{
 
 func (vec3 Vector3) dot3(other Vector3) float64 {
 	return vec3.x*other.x + vec3.y*other.y + vec3.z*other.z
+}
+
+func (vec3 Vector3) dot2(other Vector2) float64 {
+	return vec3.x*other.x + vec3.y*other.y
 }
 
 var Seeds [5]Seeder
@@ -67,7 +79,6 @@ func Noise3dSimplex(x, y, z float64, seed int, dt SimplexDt) float64 {
 
 	dt.n = (dt.n + 1.0) * 0.5
 
-	dt.n = math.Pow(dt.n, 1.65)
 	if dt.n < 0 {
 		dt.n = 0
 	}
@@ -233,4 +244,115 @@ func NoiseInitPermtables(seed float64) {
 	Seeds[2] = _seedFunc(int(seed * 3.6))
 	Seeds[3] = _seedFunc(int(seed * 4.7))
 	Seeds[4] = _seedFunc(int(seed * 2))
+}
+
+func simplex2d(xin, yin float64, seed int) float64 {
+	// Skewing and unskewing factors for 2, 3, and 4 dimensions
+	var F2 = 0.5 * (math.Sqrt(3) - 1)
+	var G2 = (3 - math.Sqrt(3)) * 0.166666667
+
+	var n0, n1, n2 float64 // Noise contributions from the three corners
+	// Skew the input space to determine which simplex cell we are in
+	var s float64 = (xin + yin) * F2 // Hairy factor for 2D
+	var i int = int(xin + s)
+	var j int = int(yin + s)
+	var t float64 = float64(i+j) * G2
+	var x0 float64 = xin - float64(i) + t // The x, y distances from the cell origin
+	var y0 float64 = yin - float64(j) + t
+	// Determine which simplex we are in
+	var i1, j1 float64 // Offsets for second (middle) corner of simplex in (i, j) coords
+	if x0 > y0 {       // lower triangle, XY order: (0, 0) -> (1, 0) -> (1, 1)
+		i1 = 1
+		j1 = 0
+	} else { // upper triangle, YX order: (0, 0) -> (0, 1) -> (1, 1)
+		i1 = 0
+		j1 = 1
+	}
+	// A step of (1,0) in (i,j) means a step of (1-c,-c) in (x,y), and
+	// a step of (0,1) in (i,j) means a step of (-c,1-c) in (x,y), where
+	// c = (3-sqrt(3))/6
+	var x1 = x0 - i1 + G2 // Offsets for middle corner in (x,y)
+	var y1 = y0 - j1 + G2
+	var x2 = x0 - 1 + 2*G2 // Offsets for last corner in (x,y)
+	var y2 = y0 - 1 + 2*G2
+	// Work out the hashed gradient indices of the three simplex corners
+	i &= 255
+	j &= 255
+
+	// Calculate the contribution from the three corners
+	var t0 = 0.5 - x0*x0 - y0*y0
+	if t0 < 0 {
+		n0 = 0
+	} else {
+		t0 *= t0
+		n0 = t0 * t0 * Seeds[seed].gradP[i+Seeds[seed].perm[j]].dot2(Vector2{x0, y0}) // (x,y) of grad3 used for 2D gradient
+	}
+	var t1 = 0.5 - x1*x1 - y1*y1
+	if t1 < 0 {
+		n1 = 0
+	} else {
+		t1 *= t1
+		n1 = t1 * t1 * Seeds[seed].gradP[i+int(i1)+Seeds[seed].perm[j+int(j1)]].dot2(Vector2{x1, y1})
+	}
+	var t2 = 0.5 - x2*x2 - y2*y2
+	if t2 < 0 {
+		n2 = 0
+	} else {
+		t2 *= t2
+		n2 = t2 * t2 * Seeds[seed].gradP[i+1+Seeds[seed].perm[j+1]].dot2(Vector2{x2, y2})
+	}
+	// Add contributions from each corner to get the final noise value
+	// The result is scaled to return values in the interval [-1, 1]
+	return 70 * (n0 + n1 + n2)
+}
+
+func Noise2dSimplex(x, y, n, a, freq float64, octave, seed int) float64 {
+	x = math.Abs(x)
+	y = math.Abs(y)
+
+	for octave := 0; octave < 8; octave++ {
+		var v float64 = a * simplex2d(float64(x)*freq, float64(y)*freq, seed)
+		n += v
+
+		a *= 0.5
+		freq *= 2.0
+	}
+
+	n = (n + 1.0) * 0.5
+
+	if n < 0 {
+		n = 0
+	} else if n >= 1 {
+		n = 1
+	}
+
+	return n
+}
+
+func generateVarianteColorBillowNoise(rgb mgl32.Vec3, x, y, z float64) mgl32.Vec3 {
+	colorVariationPerlin := float32(Noise3dSimplex(x, y, z, 0.0, SimplexDt{0.0, 1.0, 0.035, 5})) / 2
+	var newColorVariationR float32
+	var newColorVariationG float32
+	var newColorVariationB float32
+	if rgb[0]-colorVariationPerlin < 0 {
+		newColorVariationR = 0
+	} else {
+		newColorVariationR = (rgb[0]) - (colorVariationPerlin)
+	}
+	if rgb[1]-colorVariationPerlin < 0 {
+		newColorVariationG = 0
+	} else {
+		newColorVariationG = (rgb[1]) - (colorVariationPerlin)
+	}
+	if rgb[2]-colorVariationPerlin < 0 {
+		newColorVariationB = 0
+	} else {
+		newColorVariationB = (rgb[2]) - (colorVariationPerlin)
+	}
+	if math.IsNaN(float64(newColorVariationR)) {
+		fmt.Println(colorVariationPerlin)
+		fmt.Println(x, y, z)
+		fmt.Println(mgl32.Vec3{newColorVariationR, newColorVariationG, newColorVariationB})
+	}
+	return mgl32.Vec3{newColorVariationR, newColorVariationG, newColorVariationB}
 }

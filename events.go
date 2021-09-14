@@ -41,23 +41,23 @@ func initGameValues(gameValues *GameValues) {
 	gameValues.polygonMode = false
 }
 
-func _keyboardRotation(cbo *Cbo) {
+func _keyboardRotation(mod1 *Mod1) {
 	if glfw.GetCurrentContext().GetKey(glfw.KeyLeft) == 1 {
-		cbo.rot = cbo.rot.Sub(mgl32.Vec3{0, 0.05, 0})
+		mod1.rot = mod1.rot.Sub(mgl32.Vec3{0, 0.05, 0})
 	}
 	if glfw.GetCurrentContext().GetKey(glfw.KeyRight) == 1 {
-		cbo.rot = cbo.rot.Add(mgl32.Vec3{0, 0.05, 0})
+		mod1.rot = mod1.rot.Add(mgl32.Vec3{0, 0.05, 0})
 	}
 
 	if glfw.GetCurrentContext().GetKey(glfw.KeyUp) == 1 {
-		cbo.rot = cbo.rot.Sub(mgl32.Vec3{0.05, 0, 0})
+		mod1.rot = mod1.rot.Sub(mgl32.Vec3{0.05, 0, 0})
 	}
 	if glfw.GetCurrentContext().GetKey(glfw.KeyDown) == 1 {
-		cbo.rot = cbo.rot.Add(mgl32.Vec3{0.05, 0, 0})
+		mod1.rot = mod1.rot.Add(mgl32.Vec3{0.05, 0, 0})
 	}
 }
 
-func _keyboardTranslate(cbo *Cbo, multiplier float32) {
+func _keyboardTranslate(mod1 *Mod1, multiplier float32) {
 	move := mgl32.Vec3{0, 0, 0}
 
 	if glfw.GetCurrentContext().GetKey(glfw.KeyW) == 1 {
@@ -81,13 +81,13 @@ func _keyboardTranslate(cbo *Cbo, multiplier float32) {
 	}
 
 	if move[0] != 0 || move[1] != 0 || move[2] != 0 {
-		rotationMat := mgl32.HomogRotate3D(cbo.rot.Y(), mgl32.Vec3{0, -1, 0})
-		rotationMat = rotationMat.Mul4((mgl32.HomogRotate3D(cbo.rot.X(), mgl32.Vec3{-1, 0, 0})))
-		cbo.pos = cbo.pos.Add(rotationMat.Mul4x1(move.Vec4(1)).Vec3())
+		rotationMat := mgl32.HomogRotate3D(mod1.rot.Y(), mgl32.Vec3{0, -1, 0})
+		rotationMat = rotationMat.Mul4((mgl32.HomogRotate3D(mod1.rot.X(), mgl32.Vec3{-1, 0, 0})))
+		mod1.pos = mod1.pos.Add(rotationMat.Mul4x1(move.Vec4(1)).Vec3())
 	}
 }
 
-func EventsMouse(cbo *Cbo) {
+func EventsMouse(mod1 *Mod1) {
 	posX, posY := glfw.GetCurrentContext().GetCursorPos()
 
 	if _oldMousePosX == 0 {
@@ -97,7 +97,7 @@ func EventsMouse(cbo *Cbo) {
 		_oldMousePosY = posY
 	}
 
-	cbo.rot = cbo.rot.Add(mgl32.Vec3{
+	mod1.rot = mod1.rot.Add(mgl32.Vec3{
 		-float32((_oldMousePosY - posY) * 0.001),
 		-float32((_oldMousePosX - posX) * 0.001),
 		0,
@@ -119,7 +119,7 @@ func getKeyStatus(key glfw.Key, status string) string {
 	return status
 }
 
-func EventsKeyboard(cbo *Cbo, colorTest *ColorRGB, k *Keys, gameValues *GameValues) {
+func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameValues, whiteUniform int32) {
 	k.escape = getKeyStatus(glfw.KeyEscape, k.escape)
 	k.t = getKeyStatus(glfw.KeyT, k.t)
 	k.v = getKeyStatus(glfw.KeyV, k.v)
@@ -165,6 +165,7 @@ func EventsKeyboard(cbo *Cbo, colorTest *ColorRGB, k *Keys, gameValues *GameValu
 		} else {
 			colorTest.r = 1.0
 		}
+		gl.Uniform1f(whiteUniform, colorTest.r)
 	}
 	if k.l == "active" {
 		if gameValues.polygonMode {
@@ -176,6 +177,6 @@ func EventsKeyboard(cbo *Cbo, colorTest *ColorRGB, k *Keys, gameValues *GameValu
 		}
 	}
 
-	_keyboardTranslate(cbo, gameValues.speed)
-	_keyboardRotation(cbo)
+	_keyboardTranslate(mod1, gameValues.speed)
+	_keyboardRotation(mod1)
 }

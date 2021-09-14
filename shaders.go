@@ -42,10 +42,10 @@ func _getShaderSource(file string) string {
 	return string(data) + "\x00"
 }
 
-func GetCameraMatrix(cbo Cbo) mgl32.Mat4 {
-	camera := mgl32.HomogRotate3D(cbo.rot.X(), mgl32.Vec3{1, 0, 0})
-	camera = camera.Mul4(mgl32.HomogRotate3D(cbo.rot.Y(), mgl32.Vec3{0, 1, 0}))
-	camera = camera.Mul4(mgl32.Translate3D(cbo.pos.X(), cbo.pos.Y(), cbo.pos.Z()))
+func GetCameraMatrix(mod1 Mod1) mgl32.Mat4 {
+	camera := mgl32.HomogRotate3D(mod1.rot.X(), mgl32.Vec3{1, 0, 0})
+	camera = camera.Mul4(mgl32.HomogRotate3D(mod1.rot.Y(), mgl32.Vec3{0, 1, 0}))
+	camera = camera.Mul4(mgl32.Translate3D(mod1.pos.X(), mod1.pos.Y(), mod1.pos.Z()))
 
 	return camera
 }
