@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -16,7 +17,7 @@ import (
 const (
 	width          = 800
 	height         = 500
-	simulationSize = 25
+	simulationSize = 250
 )
 
 type Mod1 struct {
@@ -37,7 +38,7 @@ var (
 type Vec3u32 [3]uint32
 
 var m map[Vec3u32]uint8
-var mCp map[Vec3u32]uint8
+var mMutex = sync.RWMutex{}
 
 type ColorRGB struct {
 	r float32
@@ -50,12 +51,44 @@ type GameValues struct {
 	polygonMode bool
 }
 
+func findMe() {
+
+}
+
+func tamer(points_water []float32, vbo_water uint32) {
+	points_water = []float32{}
+	mCp := make(map[Vec3u32]uint8, len(m))
+	for key := range m {
+		if m[key] == 2 {
+			if (m[Vec3u32{key[0], key[1] - 1, key[2]}] == 0) {
+				mCp[Vec3u32{key[0], key[1] - 1, key[2]}] = 2
+			} else {
+				mCp[key] = m[key]
+			}
+		} else {
+			mCp[key] = m[key]
+		}
+	}
+	m = mCp
+	//
+	for key := range m {
+		if m[key] == 2 {
+			points_water = AddCube(key, cWater, points_water)
+		}
+	}
+	//elapsed := time.Since(start)
+	//log.Printf("time: %s", elapsed)
+	// 110ms
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
+	// 8ms
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	NoiseInitPermtables(42)
 
 	m = make(map[Vec3u32]uint8)
-	mCp = make(map[Vec3u32]uint8)
 
 	// simulation delimiter
 	for x := 0; x < simulationSize; x++ {
@@ -150,29 +183,9 @@ func main() {
 		EventsMouse(&Mod1)
 		setCamera(cameraId, &Mod1)
 
-		if keys.v == "active" {
+		if keys.v == "hold" {
 			// do iteration for water
-			mCp = make(map[Vec3u32]uint8)
-			for key, value := range m {
-				if value == 2 {
-					if (m[Vec3u32{key[0], key[1] - 1, key[2]}] == 0) {
-						mCp[Vec3u32{key[0], key[1] - 1, key[2]}] = 2
-					} else {
-						mCp[key] = value
-					}
-				} else {
-					mCp[key] = value
-				}
-			}
-			m = mCp
-			points_water = []float32{}
-			for key, value := range m {
-				if value == 2 {
-					points_water = AddCube(key, cWater, points_water)
-				}
-			}
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
+			tamer(points_water, vbo_water)
 			//fmt.Println(len(points) / 6 / 3)
 		}
 
