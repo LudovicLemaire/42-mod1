@@ -35,7 +35,7 @@ var (
 	cDelimiter                   = mgl32.Vec3{0.95, 0.26, 0.21}
 )
 
-type Vec3u32 [3]uint32
+type Vec3u32 [3]int32
 
 var m map[Vec3u32]uint8
 var mMutex = sync.RWMutex{}
@@ -51,24 +51,45 @@ type GameValues struct {
 	polygonMode bool
 }
 
-func findMe() {
+func findMe(mCp map[Vec3u32]uint8, key Vec3u32) {
+	if key[1] == 0 {
+		mCp[key] = m[key]
+		return
+	}
+	if m[Vec3u32{key[0], key[1] - 1, key[2]}] != 1 && m[Vec3u32{key[0], key[1] - 1, key[2]}] != 2 && key[1] > 0 {
+		mCp[Vec3u32{key[0], key[1] - 1, key[2]}] = 2
+	} else {
+		//m[key] = 4
 
+		// if m[Vec3u32{key[0] + 1, key[1], key[2]}] == 0 && key[0]+1 < simulationSize-1 {
+		// 	findMe(mCp, Vec3u32{key[0] + 1, key[1], key[2]})
+		// }
+		mCp[key] = m[key]
+	}
 }
 
 func tamer(points_water []float32, vbo_water uint32) {
+	start := time.Now()
 	points_water = []float32{}
 	mCp := make(map[Vec3u32]uint8, len(m))
 	for key := range m {
 		if m[key] == 2 {
-			if (m[Vec3u32{key[0], key[1] - 1, key[2]}] == 0) {
-				mCp[Vec3u32{key[0], key[1] - 1, key[2]}] = 2
-			} else {
-				mCp[key] = m[key]
+			findMe(mCp, key)
+			mCp2 := make(map[Vec3u32]uint8, len(m))
+			for key2 := range m {
+				mCp2[key2] = m[key2]
 			}
 		} else {
 			mCp[key] = m[key]
 		}
 	}
+	elapsed := time.Since(start)
+	log.Printf("Binomial took %s", elapsed)
+	//for key := range m {
+	//	if m[key] == 4 {
+	//		fmt.Println(key)
+	//	}
+	//}
 	m = mCp
 	//
 	for key := range m {
@@ -94,25 +115,44 @@ func main() {
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
 			if (x+z)%2 == 0 {
-				m[Vec3u32{uint32(x), uint32(0), uint32(z)}] = 3
-				m[Vec3u32{uint32(x), uint32(simulationSize), uint32(z)}] = 3
+				m[Vec3u32{int32(x), int32(0), int32(z)}] = 3
+				m[Vec3u32{int32(x), int32(simulationSize), int32(z)}] = 3
 			}
 		}
 	}
-	// ground
-	for x := 0; x < simulationSize; x++ {
-		for z := 0; z < simulationSize; z++ {
-			y := Noise2dSimplex(float64(x), float64(z), 0.0, 0.15, 0.15, 3, 0) * simulationSize / 4
-			m[Vec3u32{uint32(x), uint32(y), uint32(z)}] = 1
+	/*
+		// ground
+		for x := 0; x < simulationSize; x++ {
+			for z := 0; z < simulationSize; z++ {
+				y := Noise2dSimplex(float64(x), float64(z), 0.0, 0.15, 0.15, 3, 0) * simulationSize / 4
+				m[Vec3u32{uint32(x), uint32(y), uint32(z)}] = 1
 
+			}
 		}
-	}
+	*/
 	// water
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
 			y := Noise2dSimplex(float64(x), float64(z), 0.0, 0.15, 0.15, 3, 0) * simulationSize * 1.5
-			m[Vec3u32{uint32(x), uint32(y), uint32(z)}] = 2
+			m[Vec3u32{int32(x), int32(y), int32(z)}] = 2
 
+		}
+	}
+	//m[Vec3u32{10, 50, 10}] = 2
+
+	for x := 7; x < 14; x++ {
+		for z := 7; z < 14; z++ {
+			m[Vec3u32{int32(x), int32(3), int32(z)}] = 1
+		}
+	}
+	for x := 6; x < 15; x++ {
+		for z := 6; z < 15; z++ {
+			m[Vec3u32{int32(x), int32(4), int32(z)}] = 1
+		}
+	}
+	for x := 7; x < 14; x++ {
+		for z := 7; z < 14; z++ {
+			m[Vec3u32{int32(x), int32(4), int32(z)}] = 0
 		}
 	}
 
@@ -183,10 +223,24 @@ func main() {
 		EventsMouse(&Mod1)
 		setCamera(cameraId, &Mod1)
 
-		if keys.v == "hold" {
+		if keys.v == "active" {
 			// do iteration for water
 			tamer(points_water, vbo_water)
 			//fmt.Println(len(points) / 6 / 3)
+		}
+
+		if keys.c == "active" {
+			// add water
+			points_water = []float32{}
+			m[Vec3u32{10, 10, 10}] = 2
+			for key := range m {
+				if m[key] == 2 {
+					points_water = AddCube(key, cWater, points_water)
+				}
+			}
+
+			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
+			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
 		}
 
 		gl.BindVertexArray(vao)
