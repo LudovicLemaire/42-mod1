@@ -9,18 +9,22 @@ import (
 )
 
 type Keys struct {
-	escape string
-	t      string
-	v      string
-	c      string
-	l      string
-	shift  string
-	kp1    string
-	kp2    string
-	kp3    string
-	kp4    string
-	kp5    string
-	kp6    string
+	escape      string
+	t           string
+	v           string
+	c           string
+	l           string
+	b           string
+	x           string
+	z           string
+	shift       string
+	kp1         string
+	kp2         string
+	kp3         string
+	kp4         string
+	kp5         string
+	kp6         string
+	graveAccent string
 }
 
 func initKeys(keys *Keys) {
@@ -29,6 +33,9 @@ func initKeys(keys *Keys) {
 	keys.v = "null"
 	keys.c = "null"
 	keys.l = "null"
+	keys.b = "null"
+	keys.x = "null"
+	keys.z = "null"
 	keys.shift = "null"
 	keys.kp1 = "null"
 	keys.kp2 = "null"
@@ -36,6 +43,7 @@ func initKeys(keys *Keys) {
 	keys.kp4 = "null"
 	keys.kp5 = "null"
 	keys.kp6 = "null"
+	keys.graveAccent = "null"
 }
 
 func initGameValues(gameValues *GameValues) {
@@ -127,6 +135,9 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	k.v = getKeyStatus(glfw.KeyV, k.v)
 	k.c = getKeyStatus(glfw.KeyC, k.c)
 	k.l = getKeyStatus(glfw.KeyL, k.l)
+	k.b = getKeyStatus(glfw.KeyB, k.b)
+	k.x = getKeyStatus(glfw.KeyX, k.x)
+	k.z = getKeyStatus(glfw.KeyZ, k.z)
 	k.shift = getKeyStatus(glfw.KeyLeftShift, k.shift)
 	k.kp1 = getKeyStatus(glfw.KeyKP1, k.kp1)
 	k.kp2 = getKeyStatus(glfw.KeyKP2, k.kp2)
@@ -134,6 +145,7 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	k.kp4 = getKeyStatus(glfw.KeyKP4, k.kp4)
 	k.kp5 = getKeyStatus(glfw.KeyKP5, k.kp5)
 	k.kp6 = getKeyStatus(glfw.KeyKP6, k.kp6)
+	k.graveAccent = getKeyStatus(glfw.KeyGraveAccent, k.graveAccent)
 
 	if k.escape == "active" {
 		os.Exit(1)
