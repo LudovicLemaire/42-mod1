@@ -20,9 +20,9 @@ type ScreenData struct {
 }
 
 const (
-	width          = 800
-	height         = 500
-	simulationSize = 100
+	width          = 1600
+	height         = 900
+	simulationSize = 175
 )
 
 type Mod1 struct {
@@ -57,18 +57,19 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	var screenData ScreenData
 	var err error
-	NoiseInitPermtables(15)
+	NoiseInitPermtables(445)
 
-	groundMap := make(map[Vec3u32]uint8)
+	groundMap := make(map[Vec3u32]bool)
 	waterMap := make(map[Vec3u32]uint8)
-	delimiterMap := make(map[Vec3u32]uint8)
+	delimiterMap := make(map[Vec3u32]bool)
+	//waterMapPassive := make(map[Vec3u32]uint8)
 
 	// Simulation delimiter \\
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
 			if (x+z)%2 == 0 {
-				delimiterMap[Vec3u32{int32(x), int32(0), int32(z)}] = 1
-				delimiterMap[Vec3u32{int32(x), int32(simulationSize), int32(z)}] = 1
+				delimiterMap[Vec3u32{int32(x), int32(0), int32(z)}] = true
+				delimiterMap[Vec3u32{int32(x), int32(simulationSize), int32(z)}] = true
 			}
 		}
 
@@ -125,20 +126,32 @@ func main() {
 
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
-			y := Noise2dSimplex(float64(x), float64(z), 0, 2, 0.050, 1, 2) * simulationSize / 5
+			y := Noise2dSimplex(float64(x), float64(z), 0, 1.0, 0.0155, 5, 2) * simulationSize / 4
 			for i := y; i >= 0; i-- {
-				groundMap[Vec3u32{int32(x), int32(i), int32(z)}] = 1
+				groundMap[Vec3u32{int32(x), int32(i), int32(z)}] = true
 			}
 
 		}
 	}
-	groundMap[Vec3u32{0, -50000, 0}] = 1
+	groundMap[Vec3u32{0, -50000, 0}] = true
 	for key := range groundMap {
-		if groundMap[key] == 1 {
+		if groundMap[key] {
 			points_ground = AddCube(key, cGround, points_ground)
 		}
 	}
 	// Ground //
+
+	// Check if level is filled \\
+	// filledMapBase := make(map[int64]int64)
+	// for key := range groundMap {
+	// 	if groundMap[key] {
+	// 		filledMapBase[int64(key[1])]++
+	// 	}
+	// }
+	// for key := range filledMapBase {
+	// 	fmt.Println(key, ": ", filledMapBase[key])
+	// }
+	// Check if level is filled //
 
 	var Mod1 Mod1
 	var colorRColorRGB ColorRGB
@@ -215,6 +228,11 @@ func main() {
 			//fmt.Println("Elapsed MoveAllWater: ", elapsedMoveAllWater)
 			//startCopyWater := time.Now()
 			waterMap = waterMapNew
+
+			//for k, v := range waterMapPassive {
+			//	waterMapNew[k] = v
+			//}
+
 			//elapsedCopyWater := time.Since(startCopyWater)
 			//fmt.Println("Elapsed CopyWater: ", elapsedCopyWater)
 			//startCreateCube := time.Now()
@@ -259,7 +277,18 @@ func main() {
 			// add water
 			points_water = []float32{}
 
-			waterMap[Vec3u32{50, 15, 50}] = 1
+			//waterMap[Vec3u32{0, simulationSize, 0}] = 1
+			//waterMap[Vec3u32{1, simulationSize, 0}] = 1
+			//waterMap[Vec3u32{0, simulationSize, 1}] = 1
+			//waterMap[Vec3u32{1, simulationSize, 1}] = 1
+			//waterMap[Vec3u32{2, simulationSize, 2}] = 1
+
+			for i := 0; i < simulationSize; i++ {
+				for y := 0; y < simulationSize/3; y++ {
+					waterMap[Vec3u32{int32(i), int32(y), 0}] = 1
+				}
+			}
+
 			for key := range waterMap {
 				points_water = AddCube(key, cWater, points_water)
 			}
@@ -271,10 +300,15 @@ func main() {
 			// add water
 			points_water = []float32{}
 
-			waterMap[Vec3u32{0, simulationSize, 0 + 1}] = 1
-			waterMap[Vec3u32{0, simulationSize - 4, 0 + 2}] = 1
-			waterMap[Vec3u32{0, simulationSize - 5, 0 + 1}] = 1
-			waterMap[Vec3u32{0, simulationSize - 8, 0 + 2}] = 1
+			wow := simulationSize / 10
+			for i := (simulationSize / 2) - wow; i < (simulationSize/2)+wow; i++ {
+				for ip := (simulationSize / 2) - wow; ip < (simulationSize/2)+wow; ip++ {
+					if rand.Float64() > 0.95 {
+						waterMap[Vec3u32{int32(i), simulationSize, int32(ip)}] = 1
+					}
+				}
+			}
+
 			for key := range waterMap {
 				points_water = AddCube(key, cWater, points_water)
 			}
@@ -403,47 +437,65 @@ start := time.Now()
 elapsed := time.Since(start)
 */
 
-func moveWater(waterMap, waterMapNew, groundMap map[Vec3u32]uint8) {
+func moveWater(waterMap, waterMapNew map[Vec3u32]uint8, groundMap map[Vec3u32]bool) {
 	for key := range waterMap {
 		if waterMap[key] == 1 {
 			if waterMap[Vec3u32{key[0], key[1] - 1, key[2]}] == 0 && key[1]-1 >= 0 &&
-				groundMap[Vec3u32{key[0], key[1] - 1, key[2]}] == 0 &&
+				!groundMap[Vec3u32{key[0], key[1] - 1, key[2]}] &&
 				waterMapNew[Vec3u32{key[0], key[1] - 1, key[2]}] == 0 {
 
 				waterMapNew[Vec3u32{key[0], key[1] - 1, key[2]}] = 1
 				waterMap[key] = 0
+			} else if groundMap[Vec3u32{key[0], key[1] - 1, key[2]}] &&
+				groundMap[Vec3u32{key[0], key[1] - 1, key[2] + 1}] &&
+				groundMap[Vec3u32{key[0], key[1] - 1, key[2] - 1}] &&
+				groundMap[Vec3u32{key[0] + 1, key[1] - 1, key[2]}] &&
+				groundMap[Vec3u32{key[0] - 1, key[1] - 1, key[2]}] &&
+
+				groundMap[Vec3u32{key[0] - 1, key[1] - 1, key[2] + 1}] &&
+				groundMap[Vec3u32{key[0] - 1, key[1] - 1, key[2] - 1}] &&
+				groundMap[Vec3u32{key[0] + 1, key[1] - 1, key[2] + 1}] &&
+				groundMap[Vec3u32{key[0] + 1, key[1] - 1, key[2] - 1}] {
+				waterMapNew[key] = 1
 			} else {
-				visitedMap := make(map[Vec3u32]uint8)
-				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, Vec3u32{key[0] + 1, key[1], key[2]}, 0)
+				visitedMap := make(map[Vec3u32]bool)
+				var nextPosArray [4]Vec3u32 = [4]Vec3u32{
+					{key[0] + 1, key[1], key[2]},
+					{key[0] - 1, key[1], key[2]},
+					{key[0], key[1], key[2] + 1},
+					{key[0], key[1], key[2] - 1},
+				}
+				rand.Shuffle(len(nextPosArray), func(i, j int) { nextPosArray[i], nextPosArray[j] = nextPosArray[j], nextPosArray[i] })
+				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[0], 0)
 				if didFound {
-					if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && groundMap[posFound] == 0 {
+					if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
 						waterMapNew[posFound] = 1
 						waterMap[key] = 0
 					} else {
 						waterMapNew[key] = 1
 					}
 				} else {
-					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, Vec3u32{key[0] - 1, key[1], key[2]}, 0)
+					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[1], 0)
 					if didFound {
-						if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && groundMap[posFound] == 0 {
+						if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
 							waterMapNew[posFound] = 1
 							waterMap[key] = 0
 						} else {
 							waterMapNew[key] = 1
 						}
 					} else {
-						didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, Vec3u32{key[0], key[1], key[2] + 1}, 0)
+						didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[2], 0)
 						if didFound {
-							if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && groundMap[posFound] == 0 {
+							if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
 								waterMapNew[posFound] = 1
 								waterMap[key] = 0
 							} else {
 								waterMapNew[key] = 1
 							}
 						} else {
-							didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, Vec3u32{key[0], key[1], key[2] - 1}, 0)
+							didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[3], 0)
 							if didFound {
-								if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && groundMap[posFound] == 0 {
+								if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
 									waterMapNew[posFound] = 1
 									waterMap[key] = 0
 								} else {
@@ -460,20 +512,25 @@ func moveWater(waterMap, waterMapNew, groundMap map[Vec3u32]uint8) {
 	}
 }
 
-func search(waterMap, waterMapNew, groundMap, visitedMap map[Vec3u32]uint8, initialPos, oldPos, currPos Vec3u32, nbIteration int) (bool, Vec3u32) {
+func search(waterMap, waterMapNew map[Vec3u32]uint8, groundMap, visitedMap map[Vec3u32]bool, initialPos, oldPos, currPos Vec3u32, nbIteration int) (bool, Vec3u32) {
 	var maxIteration int = 100
-	if visitedMap[currPos] == 1 || groundMap[currPos] == 1 || waterMap[currPos] == 1 || waterMapNew[currPos] == 1 ||
+	if visitedMap[currPos] || groundMap[currPos] || waterMap[currPos] == 1 || waterMapNew[currPos] == 1 ||
 		currPos[0] < 0 || currPos[1] < 0 || currPos[2] < 0 ||
 		currPos[0] >= simulationSize || currPos[1] >= simulationSize || currPos[2] >= simulationSize ||
 		nbIteration > maxIteration {
 		return false, Vec3u32{0, 0, 0}
 	} else {
-		visitedMap[currPos] = 1
+		visitedMap[currPos] = true
 	}
 
-	if waterMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 && currPos[1]-1 >= 0 &&
-		groundMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 &&
-		waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 {
+	//if groundMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] || waterMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 1 || waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 1 {
+	//	return true, Vec3u32{currPos[0], currPos[1], currPos[2]}
+	//}
+
+	if waterMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 &&
+		!groundMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] &&
+		waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 &&
+		currPos[1]-1 >= 0 {
 
 		if waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 {
 			return true, Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}
@@ -482,11 +539,6 @@ func search(waterMap, waterMapNew, groundMap, visitedMap map[Vec3u32]uint8, init
 			return false, Vec3u32{0, 0, 0}
 		}
 	} else {
-		//gotNewPos, newPos := getNewPos(oldPos, currPos, waterMap, waterMapNew, groundMap, visitedMap)
-		//if !gotNewPos {
-		//	fmt.Println("no new pos found")
-		//	return false, Vec3u32{0, 0, 0}
-		//}
 		var nextPosArray [4]Vec3u32 = [4]Vec3u32{
 			{currPos[0] + 1, currPos[1], currPos[2]},
 			{currPos[0] - 1, currPos[1], currPos[2]},
@@ -522,89 +574,3 @@ func search(waterMap, waterMapNew, groundMap, visitedMap map[Vec3u32]uint8, init
 		}
 	}
 }
-
-/*
-func getNewPos(oldPos, currPos Vec3u32, waterMap, waterMapNew, groundMap, visitedMap map[Vec3u32]uint8) (bool, Vec3u32) {
-	if currPos[0] == oldPos[0] {
-		if currPos[2] < oldPos[2] {
-			// 1
-			var testPos Vec3u32 = Vec3u32{currPos[0] - 1, currPos[1], currPos[2]}
-			if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-				return true, testPos
-			} else {
-				var testPos Vec3u32 = Vec3u32{currPos[0], currPos[1], currPos[2] - 1}
-				if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-					return true, testPos
-				} else {
-					var testPos Vec3u32 = Vec3u32{currPos[0] + 1, currPos[1], currPos[2]}
-					if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-						return true, testPos
-					} else {
-						fmt.Println("1")
-						return false, Vec3u32{0, 0, 0}
-					}
-				}
-			}
-		} else {
-			// 2
-			var testPos Vec3u32 = Vec3u32{currPos[0] + 1, currPos[1], currPos[2]}
-			if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-				return true, testPos
-			} else {
-				var testPos Vec3u32 = Vec3u32{currPos[0], currPos[1], currPos[2] + 1}
-				if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-					return true, testPos
-				} else {
-					var testPos Vec3u32 = Vec3u32{currPos[0] - 1, currPos[1], currPos[2]}
-					if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-						return true, testPos
-					} else {
-						fmt.Println("2")
-						return false, Vec3u32{0, 0, 0}
-					}
-				}
-			}
-		}
-	} else {
-		if currPos[0] > oldPos[0] {
-			// 3
-			var testPos Vec3u32 = Vec3u32{currPos[0], currPos[1], currPos[2] - 1}
-			if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-				return true, testPos
-			} else {
-				var testPos Vec3u32 = Vec3u32{currPos[0] + 1, currPos[1], currPos[2]}
-				if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-					return true, testPos
-				} else {
-					var testPos Vec3u32 = Vec3u32{currPos[0], currPos[1], currPos[2] + 1}
-					if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-						return true, testPos
-					} else {
-						fmt.Println("3")
-						return false, Vec3u32{0, 0, 0}
-					}
-				}
-			}
-		} else {
-			// 4
-			var testPos Vec3u32 = Vec3u32{currPos[0], currPos[1], currPos[2] + 1}
-			if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-				return true, testPos
-			} else {
-				var testPos Vec3u32 = Vec3u32{currPos[0] + 1, currPos[1], currPos[2]}
-				if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-					return true, testPos
-				} else {
-					var testPos Vec3u32 = Vec3u32{currPos[0], currPos[1], currPos[2] - 1}
-					if waterMap[testPos] == 0 && waterMapNew[testPos] == 0 && groundMap[testPos] == 0 && visitedMap[testPos] == 0 {
-						return true, testPos
-					} else {
-						fmt.Println("4")
-						return false, Vec3u32{0, 0, 0}
-					}
-				}
-			}
-		}
-	}
-}
-*/
