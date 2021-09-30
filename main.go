@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
 	"log"
@@ -20,9 +19,9 @@ type ScreenData struct {
 }
 
 const (
-	width          = 1600
-	height         = 900
-	simulationSize = 175
+	width          = 900 // 1600
+	height         = 700 // 900
+	simulationSize = 50
 )
 
 type Mod1 struct {
@@ -31,16 +30,26 @@ type Mod1 struct {
 }
 
 var (
-	points_ground                = []float32{}
-	points_water                 = []float32{}
-	points_delimiter             = []float32{}
 	_oldMousePosX, _oldMousePosY float64
-	cGround                      = mgl32.Vec3{0.29, 0.68, 0.31}
-	cWater                       = mgl32.Vec3{0.12, 0.58, 0.94}
-	cDelimiter                   = mgl32.Vec3{0.95, 0.26, 0.21}
+	points_ground                      = []float32{}
+	points_water                       = []float32{}
+	points_delimiter                   = []float32{}
+	cGround                            = mgl32.Vec3{0.29, 0.68, 0.31}
+	cWater                             = mgl32.Vec3{0.12, 0.58, 0.94}
+	cDelimiter                         = mgl32.Vec3{0.95, 0.26, 0.21}
+	iterationMade                      = 0
+	maxMountainHeight            int32 = 0
 )
 
-type Vec3u32 [3]int32
+var (
+	n_n3d      float64 = 0
+	a_n3d      float64 = 1.0
+	freq_n3d   float64 = 0.055
+	octave_n3d int     = 1
+	seed_n3d   int     = 0
+)
+
+type Vec3i32 [3]int32
 
 type ColorRGB struct {
 	r float32
@@ -57,101 +66,79 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	var screenData ScreenData
 	var err error
-	NoiseInitPermtables(445)
+	NoiseInitPermtables(69)
 
-	groundMap := make(map[Vec3u32]bool)
-	waterMap := make(map[Vec3u32]uint8)
-	delimiterMap := make(map[Vec3u32]bool)
-	//waterMapPassive := make(map[Vec3u32]uint8)
+	groundMap := make(map[Vec3i32]bool)
+	waterMap := make(map[Vec3i32]bool)
+	delimiterMap := make(map[Vec3i32]bool)
 
 	// Simulation delimiter \\
+	// generate delimiter positions
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
 			if (x+z)%2 == 0 {
-				delimiterMap[Vec3u32{int32(x), int32(0), int32(z)}] = true
-				delimiterMap[Vec3u32{int32(x), int32(simulationSize), int32(z)}] = true
+				delimiterMap[Vec3i32{int32(x), int32(0), int32(z)}] = true
+				delimiterMap[Vec3i32{int32(x), int32(simulationSize), int32(z)}] = true
 			}
 		}
 
 	}
+	// add plane delimiter
 	for key := range delimiterMap {
 		points_delimiter = AddPlane(key, cDelimiter, points_delimiter)
 	}
 	// Simulation delimiter //
 
-	/*
-		// ground
-		for x := 0; x < simulationSize; x++ {
-			for z := 0; z < simulationSize; z++ {
-				y := Noise2dSimplex(float64(x), float64(z), 0.0, 0.15, 0.15, 3, 0) * simulationSize / 4
-				m[Vec3u32{uint32(x), uint32(y), uint32(z)}] = 1
-
-			}
-		}
-	*/
 	// Water \\
-	/*
-		for x := 0; x < simulationSize; x++ {
-			for z := 0; z < simulationSize; z++ {
-				y := Noise2dSimplex(float64(x), float64(z), 0.0, 0.15, 0.15, 3, 0) * simulationSize * 1.5
-				waterMap[Vec3u32{int32(x), int32(y), int32(z)}] = 1
-			}
-		}
-	*/
-	waterMap[Vec3u32{0, -50000, 0}] = 1
+	// create oustide water to prevent crash from empty list
+	waterMap[Vec3i32{0, -50000, 0}] = true
+	// add cube water
 	for key := range waterMap {
 		points_water = AddCube(key, cWater, points_water)
 	}
 	// Water //
 
 	// Ground \\
+	// generate ground map with 2d noise
 	/*
-		// cup
-		for x := 7; x < 14; x++ {
-			for z := 7; z < 14; z++ {
-				groundMap[Vec3u32{int32(x), int32(3 + 4), int32(z)}] = 1
-			}
-		}
-		for x := 6; x < 15; x++ {
-			for z := 6; z < 15; z++ {
-				groundMap[Vec3u32{int32(x), int32(4 + 4), int32(z)}] = 1
-			}
-		}
-		for x := 7; x < 14; x++ {
-			for z := 7; z < 14; z++ {
-				groundMap[Vec3u32{int32(x), int32(4 + 4), int32(z)}] = 0
+		for x := 0; x < simulationSize; x++ {
+			for z := 0; z < simulationSize; z++ {
+				y := Noise2dSimplex(float64(x), float64(z), 0, 1.5, 0.01155, 0, 3) * simulationSize / 4
+				for i := y; i >= 0; i-- {
+					groundMap[Vec3i32{int32(x), int32(i), int32(z)}] = true
+				}
+
 			}
 		}
 	*/
-
+	// generate ground map with 3d noise
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
-			y := Noise2dSimplex(float64(x), float64(z), 0, 1.0, 0.0155, 5, 2) * simulationSize / 4
-			for i := y; i >= 0; i-- {
-				groundMap[Vec3u32{int32(x), int32(i), int32(z)}] = true
+			for y := 0; y < simulationSize; y++ {
+				noise := Noise3dSimplex(float64(x), float64(y), float64(z), n_n3d, a_n3d, freq_n3d, octave_n3d, seed_n3d)
+				if noise > 0.45 {
+					groundMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
+				}
 			}
-
 		}
 	}
-	groundMap[Vec3u32{0, -50000, 0}] = true
+	// create outside ground to prevent crash from empty list
+	groundMap[Vec3i32{0, -50000, 0}] = true
+	// get max height mountain
+	for key := range groundMap {
+		if groundMap[key] {
+			if key[1] > maxMountainHeight {
+				maxMountainHeight = key[1]
+			}
+		}
+	}
+	// add cube ground
 	for key := range groundMap {
 		if groundMap[key] {
 			points_ground = AddCube(key, cGround, points_ground)
 		}
 	}
 	// Ground //
-
-	// Check if level is filled \\
-	// filledMapBase := make(map[int64]int64)
-	// for key := range groundMap {
-	// 	if groundMap[key] {
-	// 		filledMapBase[int64(key[1])]++
-	// 	}
-	// }
-	// for key := range filledMapBase {
-	// 	fmt.Println(key, ": ", filledMapBase[key])
-	// }
-	// Check if level is filled //
 
 	var Mod1 Mod1
 	var colorRColorRGB ColorRGB
@@ -216,41 +203,42 @@ func main() {
 
 		if keys.v == "active" || keys.b == "hold" {
 			// do iteration for water
-			//Total := time.Now()
-			//startCreateMap := time.Now()
+			iterationMade++
+			// startTotal := time.Now()
+			// startCreateMap := time.Now()
 			points_water = []float32{}
-			waterMapNew := make(map[Vec3u32]uint8)
-			//elapsedCreateMap := time.Since(startCreateMap)
-			//fmt.Println("Elapsed CreateMap: ", elapsedCreateMap)
-			//startMoveAllWater := time.Now()
+			waterMapNew := make(map[Vec3i32]bool)
+			// elapsedCreateMap := time.Since(startCreateMap)
+			// fmt.Println("Elapsed CreateMap: ", elapsedCreateMap)
+			// startMoveAllWater := time.Now()
 			moveWater(waterMap, waterMapNew, groundMap)
-			//elapsedMoveAllWater := time.Since(startMoveAllWater)
-			//fmt.Println("Elapsed MoveAllWater: ", elapsedMoveAllWater)
-			//startCopyWater := time.Now()
+			// elapsedMoveAllWater := time.Since(startMoveAllWater)
+			// fmt.Println("Elapsed MoveAllWater: ", elapsedMoveAllWater)
+			// startCopyWater := time.Now()
 			waterMap = waterMapNew
 
 			//for k, v := range waterMapPassive {
 			//	waterMapNew[k] = v
 			//}
 
-			//elapsedCopyWater := time.Since(startCopyWater)
-			//fmt.Println("Elapsed CopyWater: ", elapsedCopyWater)
-			//startCreateCube := time.Now()
+			// elapsedCopyWater := time.Since(startCopyWater)
+			// fmt.Println("Elapsed CopyWater: ", elapsedCopyWater)
+			// startCreateCube := time.Now()
 			for key := range waterMapNew {
-				if waterMapNew[key] == 1 {
+				if waterMapNew[key] {
 					points_water = AddCube(key, cWater, points_water)
 				}
 			}
-			//elapsedCreateCube := time.Since(startCreateCube)
-			//fmt.Println("Elapsed CreateCube: ", elapsedCreateCube)
-			//startBufferData := time.Now()
+			// elapsedCreateCube := time.Since(startCreateCube)
+			// fmt.Println("Elapsed CreateCube: ", elapsedCreateCube)
+			// startBufferData := time.Now()
 			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
-			//elapsedBufferData := time.Since(startBufferData)
-			//fmt.Println("Elapsed BufferData: ", elapsedBufferData)
-			//elapsedTotal := time.Since(startTotal)
-			//fmt.Println("Elapsed Total: ", elapsedTotal)
-			//fmt.Println()
+			// elapsedBufferData := time.Since(startBufferData)
+			// fmt.Println("Elapsed BufferData: ", elapsedBufferData)
+			// elapsedTotal := time.Since(startTotal)
+			// fmt.Println("Elapsed Total: ", elapsedTotal)
+			// fmt.Println()
 		}
 
 		if keys.c == "active" {
@@ -259,9 +247,9 @@ func main() {
 
 			for x := 0; x < simulationSize; x++ {
 				for z := 0; z < simulationSize; z++ {
-					y := Noise2dSimplex(float64(x), float64(z), rand.Float64()/4, 0.15, 0.15, 3, 0) * simulationSize * 1.75
+					y := rand.Float64()*25 + simulationSize
 					if rand.Float64() > 0.75 {
-						waterMap[Vec3u32{int32(x), int32(y), int32(z)}] = 1
+						waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
 					}
 				}
 			}
@@ -277,15 +265,15 @@ func main() {
 			// add water
 			points_water = []float32{}
 
-			//waterMap[Vec3u32{0, simulationSize, 0}] = 1
-			//waterMap[Vec3u32{1, simulationSize, 0}] = 1
-			//waterMap[Vec3u32{0, simulationSize, 1}] = 1
-			//waterMap[Vec3u32{1, simulationSize, 1}] = 1
-			//waterMap[Vec3u32{2, simulationSize, 2}] = 1
+			//waterMap[Vec3i32{0, simulationSize, 0}] = 1
+			//waterMap[Vec3i32{1, simulationSize, 0}] = 1
+			//waterMap[Vec3i32{0, simulationSize, 1}] = 1
+			//waterMap[Vec3i32{1, simulationSize, 1}] = 1
+			//waterMap[Vec3i32{2, simulationSize, 2}] = 1
 
 			for i := 0; i < simulationSize; i++ {
-				for y := 0; y < simulationSize/3; y++ {
-					waterMap[Vec3u32{int32(i), int32(y), 0}] = 1
+				for y := 0; y < simulationSize; y++ {
+					waterMap[Vec3i32{int32(i), int32(y), 0}] = true
 				}
 			}
 
@@ -304,7 +292,7 @@ func main() {
 			for i := (simulationSize / 2) - wow; i < (simulationSize/2)+wow; i++ {
 				for ip := (simulationSize / 2) - wow; ip < (simulationSize/2)+wow; ip++ {
 					if rand.Float64() > 0.95 {
-						waterMap[Vec3u32{int32(i), simulationSize, int32(ip)}] = 1
+						waterMap[Vec3i32{int32(i), simulationSize, int32(ip)}] = true
 					}
 				}
 			}
@@ -344,7 +332,7 @@ func main() {
 		// print text
 		gl.Finish()
 		if keys.graveAccent == "hold" {
-			displayScreenInfo(screenData, len(waterMap), len(groundMap))
+			displayScreenInfo(screenData, len(waterMap), len(groundMap), iterationMade)
 		}
 
 		glfw.PollEvents()
@@ -419,17 +407,21 @@ func init() {
 	fmt.Println(len(points) / 6 / 3)
 */
 
-func displayScreenInfo(screenData ScreenData, totalWater, totalGround int) {
+func displayScreenInfo(screenData ScreenData, totalWater, totalGround, iterationMade int) {
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
 	screenData.font.SetColor(0.29, 0.68, 0.31, 1)
 	screenData.font.Printf(6, 20, 1.0, "Ground:")
 	screenData.font.SetColor(1, 1, 1, 1)
-	screenData.font.Printf(76, 20, 1.0, "%d", totalGround)
+	screenData.font.Printf(100, 20, 1.0, "%d", totalGround)
 	screenData.font.SetColor(0.12, 0.58, 0.94, 1)
 	screenData.font.Printf(6, 40, 1.0, "Water:")
 	screenData.font.SetColor(1, 1, 1, 1)
-	screenData.font.Printf(76, 40, 1.0, "%d", totalWater)
+	screenData.font.Printf(100, 40, 1.0, "%d", totalWater)
+	screenData.font.SetColor(0.5, 0.5, 0.5, 1)
+	screenData.font.Printf(6, 60, 1.0, "Iteration:")
+	screenData.font.SetColor(1, 1, 1, 1)
+	screenData.font.Printf(100, 60, 1.0, "%d", iterationMade)
 }
 
 /*
@@ -437,72 +429,172 @@ start := time.Now()
 elapsed := time.Since(start)
 */
 
-func moveWater(waterMap, waterMapNew map[Vec3u32]uint8, groundMap map[Vec3u32]bool) {
+func moveWater(waterMap, waterMapNew, groundMap map[Vec3i32]bool) {
 	for key := range waterMap {
-		if waterMap[key] == 1 {
-			if waterMap[Vec3u32{key[0], key[1] - 1, key[2]}] == 0 && key[1]-1 >= 0 &&
-				!groundMap[Vec3u32{key[0], key[1] - 1, key[2]}] &&
-				waterMapNew[Vec3u32{key[0], key[1] - 1, key[2]}] == 0 {
+		if waterMap[key] {
+			if !waterMap[Vec3i32{key[0], key[1] - 1, key[2]}] && key[1]-1 >= 0 &&
+				!groundMap[Vec3i32{key[0], key[1] - 1, key[2]}] &&
+				!waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] {
 
-				waterMapNew[Vec3u32{key[0], key[1] - 1, key[2]}] = 1
-				waterMap[key] = 0
-			} else if groundMap[Vec3u32{key[0], key[1] - 1, key[2]}] &&
-				groundMap[Vec3u32{key[0], key[1] - 1, key[2] + 1}] &&
-				groundMap[Vec3u32{key[0], key[1] - 1, key[2] - 1}] &&
-				groundMap[Vec3u32{key[0] + 1, key[1] - 1, key[2]}] &&
-				groundMap[Vec3u32{key[0] - 1, key[1] - 1, key[2]}] &&
-
-				groundMap[Vec3u32{key[0] - 1, key[1] - 1, key[2] + 1}] &&
-				groundMap[Vec3u32{key[0] - 1, key[1] - 1, key[2] - 1}] &&
-				groundMap[Vec3u32{key[0] + 1, key[1] - 1, key[2] + 1}] &&
-				groundMap[Vec3u32{key[0] + 1, key[1] - 1, key[2] - 1}] {
-				waterMapNew[key] = 1
+				waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] = true
+				waterMap[key] = false
 			} else {
-				visitedMap := make(map[Vec3u32]bool)
-				var nextPosArray [4]Vec3u32 = [4]Vec3u32{
+				var nextPosArray [4]Vec3i32 = [4]Vec3i32{
 					{key[0] + 1, key[1], key[2]},
 					{key[0] - 1, key[1], key[2]},
 					{key[0], key[1], key[2] + 1},
 					{key[0], key[1], key[2] - 1},
 				}
 				rand.Shuffle(len(nextPosArray), func(i, j int) { nextPosArray[i], nextPosArray[j] = nextPosArray[j], nextPosArray[i] })
-				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[0], 0)
+				isFoundMed := false
+				foundedMed := Vec3i32{0, 0, 0}
+
+				didFound, isBest, posFound := stupidSearch(waterMap, waterMapNew, groundMap, nextPosArray[0])
 				if didFound {
-					if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
-						waterMapNew[posFound] = 1
-						waterMap[key] = 0
+					isFoundMed = true
+					foundedMed = posFound
+				}
+				if isBest {
+					waterMapNew[posFound] = true
+					waterMap[key] = false
+				} else {
+					didFound, isBest, posFound = stupidSearch(waterMap, waterMapNew, groundMap, nextPosArray[1])
+					if didFound {
+						isFoundMed = true
+						foundedMed = posFound
+					}
+					if isBest {
+						waterMapNew[posFound] = true
+						waterMap[key] = false
 					} else {
-						waterMapNew[key] = 1
+						didFound, isBest, posFound = stupidSearch(waterMap, waterMapNew, groundMap, nextPosArray[2])
+						if didFound {
+							isFoundMed = true
+							foundedMed = posFound
+						}
+						if isBest {
+							waterMapNew[posFound] = true
+							waterMap[key] = false
+						} else {
+							didFound, isBest, posFound = stupidSearch(waterMap, waterMapNew, groundMap, nextPosArray[3])
+							if didFound {
+								isFoundMed = true
+								foundedMed = posFound
+							}
+							if isBest {
+								waterMapNew[posFound] = true
+								waterMap[key] = false
+							}
+						}
+					}
+				}
+				if !isFoundMed {
+					waterMapNew[key] = true
+				} else {
+					waterMapNew[foundedMed] = true
+					waterMap[key] = false
+				}
+
+			}
+		}
+	}
+}
+
+func moveWaterVS(waterMap, waterMapNew, groundMap map[Vec3i32]bool) {
+	for key := range waterMap {
+		if waterMap[key] {
+			if !waterMap[Vec3i32{key[0], key[1] - 1, key[2]}] && key[1]-1 >= 0 &&
+				!groundMap[Vec3i32{key[0], key[1] - 1, key[2]}] &&
+				!waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] {
+
+				waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] = true
+				waterMap[key] = false
+			} else {
+				var nextPosArray [4]Vec3i32 = [4]Vec3i32{
+					{key[0] + 1, key[1], key[2]},
+					{key[0] - 1, key[1], key[2]},
+					{key[0], key[1], key[2] + 1},
+					{key[0], key[1], key[2] - 1},
+				}
+				rand.Shuffle(len(nextPosArray), func(i, j int) { nextPosArray[i], nextPosArray[j] = nextPosArray[j], nextPosArray[i] })
+				didFound, posFound := veryStupidSearch(waterMap, waterMapNew, groundMap, nextPosArray[0])
+				if didFound {
+					waterMapNew[posFound] = true
+					waterMap[key] = false
+				} else {
+					waterMapNew[key] = true
+				}
+			}
+		}
+	}
+}
+
+func moveWaterFloodfill(waterMap, waterMapNew, groundMap map[Vec3i32]bool) {
+	for key := range waterMap {
+		if waterMap[key] {
+			if !waterMap[Vec3i32{key[0], key[1] - 1, key[2]}] && key[1]-1 >= 0 &&
+				!groundMap[Vec3i32{key[0], key[1] - 1, key[2]}] &&
+				!waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] {
+
+				waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] = true
+				waterMap[key] = false
+			} else if groundMap[Vec3i32{key[0], key[1] - 1, key[2]}] &&
+				groundMap[Vec3i32{key[0], key[1] - 1, key[2] + 1}] &&
+				groundMap[Vec3i32{key[0], key[1] - 1, key[2] - 1}] &&
+				groundMap[Vec3i32{key[0] + 1, key[1] - 1, key[2]}] &&
+				groundMap[Vec3i32{key[0] - 1, key[1] - 1, key[2]}] &&
+
+				groundMap[Vec3i32{key[0] - 1, key[1] - 1, key[2] + 1}] &&
+				groundMap[Vec3i32{key[0] - 1, key[1] - 1, key[2] - 1}] &&
+				groundMap[Vec3i32{key[0] + 1, key[1] - 1, key[2] + 1}] &&
+				groundMap[Vec3i32{key[0] + 1, key[1] - 1, key[2] - 1}] {
+				waterMapNew[key] = true
+			} else {
+				visitedMap := make(map[Vec3i32]bool)
+				var nextPosArray [4]Vec3i32 = [4]Vec3i32{
+					{key[0] + 1, key[1], key[2]},
+					{key[0] - 1, key[1], key[2]},
+					{key[0], key[1], key[2] + 1},
+					{key[0], key[1], key[2] - 1},
+				}
+				rand.Shuffle(len(nextPosArray), func(i, j int) { nextPosArray[i], nextPosArray[j] = nextPosArray[j], nextPosArray[i] })
+				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[0], 0, 100)
+				if didFound {
+					if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+						waterMapNew[posFound] = true
+						waterMap[key] = false
+					} else {
+						waterMapNew[key] = true
 					}
 				} else {
-					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[1], 0)
+					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[1], 0, 100)
 					if didFound {
-						if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
-							waterMapNew[posFound] = 1
-							waterMap[key] = 0
+						if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+							waterMapNew[posFound] = true
+							waterMap[key] = false
 						} else {
-							waterMapNew[key] = 1
+							waterMapNew[key] = true
 						}
 					} else {
-						didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[2], 0)
+						didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[2], 0, 100)
 						if didFound {
-							if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
-								waterMapNew[posFound] = 1
-								waterMap[key] = 0
+							if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+								waterMapNew[posFound] = true
+								waterMap[key] = false
 							} else {
-								waterMapNew[key] = 1
+								waterMapNew[key] = true
 							}
 						} else {
-							didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[3], 0)
+							didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[3], 0, 100)
 							if didFound {
-								if waterMapNew[posFound] == 0 && waterMap[posFound] == 0 && !groundMap[posFound] {
-									waterMapNew[posFound] = 1
-									waterMap[key] = 0
+								if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+									waterMapNew[posFound] = true
+									waterMap[key] = false
 								} else {
-									waterMapNew[key] = 1
+									waterMapNew[key] = true
 								}
 							} else {
-								waterMapNew[key] = 1
+								waterMapNew[key] = true
 							}
 						}
 					}
@@ -512,34 +604,95 @@ func moveWater(waterMap, waterMapNew map[Vec3u32]uint8, groundMap map[Vec3u32]bo
 	}
 }
 
-func search(waterMap, waterMapNew map[Vec3u32]uint8, groundMap, visitedMap map[Vec3u32]bool, initialPos, oldPos, currPos Vec3u32, nbIteration int) (bool, Vec3u32) {
-	var maxIteration int = 100
-	if visitedMap[currPos] || groundMap[currPos] || waterMap[currPos] == 1 || waterMapNew[currPos] == 1 ||
+func moveWaterSnow(waterMap, waterMapNew, groundMap map[Vec3i32]bool) {
+	cWater = mgl32.Vec3{1, 1, 1}
+	for key := range waterMap {
+		if waterMap[key] {
+			if !waterMap[Vec3i32{key[0], key[1] - 1, key[2]}] && key[1]-1 >= 0 &&
+				!groundMap[Vec3i32{key[0], key[1] - 1, key[2]}] &&
+				!waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] {
+
+				waterMapNew[Vec3i32{key[0], key[1] - 1, key[2]}] = true
+				waterMap[key] = false
+			} else if groundMap[Vec3i32{key[0], key[1] - 1, key[2]}] {
+				waterMapNew[key] = true
+			} else {
+				visitedMap := make(map[Vec3i32]bool)
+				var nextPosArray [4]Vec3i32 = [4]Vec3i32{
+					{key[0] + 1, key[1], key[2]},
+					{key[0] - 1, key[1], key[2]},
+					{key[0], key[1], key[2] + 1},
+					{key[0], key[1], key[2] - 1},
+				}
+				rand.Shuffle(len(nextPosArray), func(i, j int) { nextPosArray[i], nextPosArray[j] = nextPosArray[j], nextPosArray[i] })
+				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[0], 0, 5)
+				if didFound {
+					if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+						waterMapNew[posFound] = true
+						waterMap[key] = false
+					} else {
+						waterMapNew[key] = true
+					}
+				} else {
+					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[1], 0, 5)
+					if didFound {
+						if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+							waterMapNew[posFound] = true
+							waterMap[key] = false
+						} else {
+							waterMapNew[key] = true
+						}
+					} else {
+						didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[2], 0, 5)
+						if didFound {
+							if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+								waterMapNew[posFound] = true
+								waterMap[key] = false
+							} else {
+								waterMapNew[key] = true
+							}
+						} else {
+							didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, key, key, nextPosArray[3], 0, 5)
+							if didFound {
+								if !waterMapNew[posFound] && !waterMap[posFound] && !groundMap[posFound] {
+									waterMapNew[posFound] = true
+									waterMap[key] = false
+								} else {
+									waterMapNew[key] = true
+								}
+							} else {
+								waterMapNew[key] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func search(waterMap, waterMapNew, groundMap, visitedMap map[Vec3i32]bool, initialPos, oldPos, currPos Vec3i32, nbIteration, maxIteration int) (bool, Vec3i32) {
+	if visitedMap[currPos] || groundMap[currPos] || waterMap[currPos] || waterMapNew[currPos] ||
 		currPos[0] < 0 || currPos[1] < 0 || currPos[2] < 0 ||
-		currPos[0] >= simulationSize || currPos[1] >= simulationSize || currPos[2] >= simulationSize ||
+		currPos[0] >= simulationSize || currPos[2] >= simulationSize ||
 		nbIteration > maxIteration {
-		return false, Vec3u32{0, 0, 0}
+		return false, Vec3i32{0, 0, 0}
 	} else {
 		visitedMap[currPos] = true
 	}
 
-	//if groundMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] || waterMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 1 || waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 1 {
-	//	return true, Vec3u32{currPos[0], currPos[1], currPos[2]}
-	//}
-
-	if waterMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 &&
-		!groundMap[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] &&
-		waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 &&
+	if !waterMap[Vec3i32{currPos[0], currPos[1] - 1, currPos[2]}] &&
+		!groundMap[Vec3i32{currPos[0], currPos[1] - 1, currPos[2]}] &&
+		!waterMapNew[Vec3i32{currPos[0], currPos[1] - 1, currPos[2]}] &&
 		currPos[1]-1 >= 0 {
 
-		if waterMapNew[Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}] == 0 {
-			return true, Vec3u32{currPos[0], currPos[1] - 1, currPos[2]}
+		if !waterMapNew[Vec3i32{currPos[0], currPos[1] - 1, currPos[2]}] {
+			return true, Vec3i32{currPos[0], currPos[1] - 1, currPos[2]}
 		} else {
-			fmt.Println("\033[1;31mUnintended behavior:\033[0m code 1")
-			return false, Vec3u32{0, 0, 0}
+			return false, Vec3i32{0, 0, 0}
 		}
 	} else {
-		var nextPosArray [4]Vec3u32 = [4]Vec3u32{
+		var nextPosArray [4]Vec3i32 = [4]Vec3i32{
 			{currPos[0] + 1, currPos[1], currPos[2]},
 			{currPos[0] - 1, currPos[1], currPos[2]},
 			{currPos[0], currPos[1], currPos[2] + 1},
@@ -548,29 +701,103 @@ func search(waterMap, waterMapNew map[Vec3u32]uint8, groundMap, visitedMap map[V
 		rand.Shuffle(len(nextPosArray), func(i, j int) { nextPosArray[i], nextPosArray[j] = nextPosArray[j], nextPosArray[i] })
 
 		newPos := nextPosArray[0]
-		didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1)
+		didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1, maxIteration)
 		if didFound {
-			return true, Vec3u32{posFound[0], posFound[1], posFound[2]}
+			return true, Vec3i32{posFound[0], posFound[1], posFound[2]}
 		} else {
 			newPos := nextPosArray[1]
-			didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1)
+			didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1, maxIteration)
 			if didFound {
-				return true, Vec3u32{posFound[0], posFound[1], posFound[2]}
+				return true, Vec3i32{posFound[0], posFound[1], posFound[2]}
 			} else {
 				newPos := nextPosArray[2]
-				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1)
+				didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1, maxIteration)
 				if didFound {
-					return true, Vec3u32{posFound[0], posFound[1], posFound[2]}
+					return true, Vec3i32{posFound[0], posFound[1], posFound[2]}
 				} else {
 					newPos := nextPosArray[3]
-					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1)
+					didFound, posFound := search(waterMap, waterMapNew, groundMap, visitedMap, initialPos, currPos, newPos, nbIteration+1, maxIteration)
 					if didFound {
-						return true, Vec3u32{posFound[0], posFound[1], posFound[2]}
+						return true, Vec3i32{posFound[0], posFound[1], posFound[2]}
 					} else {
-						return false, Vec3u32{0, 0, 0}
+						return false, Vec3i32{0, 0, 0}
 					}
 				}
 			}
 		}
 	}
+}
+
+func stupidSearch(waterMap, waterMapNew, groundMap map[Vec3i32]bool, currPos Vec3i32) (bool, bool, Vec3i32) {
+	if groundMap[currPos] || waterMap[currPos] || waterMapNew[currPos] ||
+		currPos[0] < 0 || currPos[1] < 0 || currPos[2] < 0 ||
+		currPos[0] >= simulationSize || currPos[2] >= simulationSize {
+		return false, false, Vec3i32{0, 0, 0}
+	}
+	var newPos Vec3i32 = Vec3i32{currPos[0], currPos[1] - 1, currPos[2]}
+	if groundMap[newPos] || waterMap[newPos] || waterMapNew[newPos] ||
+		newPos[0] < 0 || newPos[1] < 0 || newPos[2] < 0 ||
+		newPos[0] >= simulationSize || newPos[1] >= simulationSize || newPos[2] >= simulationSize {
+		return true, true, currPos
+	}
+
+	newPos = Vec3i32{currPos[0] - 1, currPos[1] - 1, currPos[2]}
+	if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+		newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+		newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+		newPos = Vec3i32{currPos[0] - 1, currPos[1], currPos[2]}
+		if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+			newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+			newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+			return true, true, newPos
+		}
+	}
+
+	newPos = Vec3i32{currPos[0] + 1, currPos[1] - 1, currPos[2]}
+	if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+		newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+		newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+		newPos = Vec3i32{currPos[0] + 1, currPos[1], currPos[2]}
+		if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+			newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+			newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+			return true, true, newPos
+		}
+	}
+
+	newPos = Vec3i32{currPos[0], currPos[1] - 1, currPos[2] + 1}
+	if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+		newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+		newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+		newPos = Vec3i32{currPos[0], currPos[1], currPos[2] + 1}
+		if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+			newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+			newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+			return true, true, newPos
+		}
+	}
+
+	newPos = Vec3i32{currPos[0], currPos[1] - 1, currPos[2] - 1}
+	if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+		newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+		newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+		newPos = Vec3i32{currPos[0], currPos[1], currPos[2] - 1}
+		if !groundMap[newPos] && !waterMap[newPos] && !waterMapNew[newPos] &&
+			newPos[0] >= 0 && newPos[1] >= 0 && newPos[2] >= 0 &&
+			newPos[0] < simulationSize && newPos[1] < simulationSize && newPos[2] < simulationSize {
+			return true, true, newPos
+		}
+	}
+
+	return true, false, currPos
+}
+
+func veryStupidSearch(waterMap, waterMapNew, groundMap map[Vec3i32]bool, currPos Vec3i32) (bool, Vec3i32) {
+	if groundMap[currPos] || waterMap[currPos] || waterMapNew[currPos] ||
+		currPos[0] < 0 || currPos[1] < 0 || currPos[2] < 0 ||
+		currPos[0] >= simulationSize || currPos[2] >= simulationSize {
+		return false, Vec3i32{0, 0, 0}
+	}
+
+	return true, currPos
 }
