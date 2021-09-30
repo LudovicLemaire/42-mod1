@@ -222,6 +222,43 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 		}
 	}
 
+	if k.right == "hold" {
+		if zOffsetWS <= simulationSize-1 {
+			zOffsetWS++
+		}
+	}
+	if k.left == "hold" {
+		if zOffsetWS > 0 {
+			zOffsetWS--
+		}
+	}
+	if k.up == "hold" {
+		if xOffsetWS <= simulationSize-1 {
+			xOffsetWS++
+		}
+	}
+	if k.down == "hold" {
+		if xOffsetWS > 0 {
+			xOffsetWS--
+		}
+	}
+	if k.multiply == "hold" {
+		yOffsetWs++
+	}
+	if k.divide == "hold" {
+		if yOffsetWs > 0 {
+			yOffsetWs--
+		}
+	}
+	if k.add == "hold" {
+		sizeWs++
+	}
+	if k.minus == "hold" {
+		if sizeWs > 1 {
+			sizeWs--
+		}
+	}
+
 	_keyboardTranslate(mod1, gameValues.speed)
 	//_keyboardRotation(mod1)
 }
