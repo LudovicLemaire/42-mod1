@@ -19,9 +19,9 @@ type ScreenData struct {
 }
 
 const (
-	width          = 900 // 1600
-	height         = 700 // 900
-	simulationSize = 50
+	width          = 900 //900 // 1600
+	height         = 700 //700 // 900
+	simulationSize = 100
 )
 
 type Mod1 struct {
@@ -34,17 +34,23 @@ var (
 	points_ground                      = []float32{}
 	points_water                       = []float32{}
 	points_delimiter                   = []float32{}
+	points_waterSpawner                = []float32{}
 	cGround                            = mgl32.Vec3{0.29, 0.68, 0.31}
 	cWater                             = mgl32.Vec3{0.12, 0.58, 0.94}
 	cDelimiter                         = mgl32.Vec3{0.95, 0.26, 0.21}
+	cPlaneWaterSpawner                 = mgl32.Vec3{1.0, 1.0, 1.0}
 	iterationMade                      = 0
 	maxMountainHeight            int32 = 0
+	zOffsetWS                    int   = 0
+	xOffsetWS                    int   = 0
+	yOffsetWs                    int   = simulationSize - 1
+	sizeWs                       int   = simulationSize / 4
 )
 
 var (
 	n_n3d      float64 = 0
 	a_n3d      float64 = 1.0
-	freq_n3d   float64 = 0.055
+	freq_n3d   float64 = 0.025 //0.105
 	octave_n3d int     = 1
 	seed_n3d   int     = 0
 )
@@ -71,12 +77,13 @@ func main() {
 	groundMap := make(map[Vec3i32]bool)
 	waterMap := make(map[Vec3i32]bool)
 	delimiterMap := make(map[Vec3i32]bool)
+	waterSpawnerMap := make(map[Vec3i32]bool)
 
 	// Simulation delimiter \\
 	// generate delimiter positions
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
-			if (x+z)%2 == 0 {
+			if (x+z)%2 == 1 {
 				delimiterMap[Vec3i32{int32(x), int32(0), int32(z)}] = true
 				delimiterMap[Vec3i32{int32(x), int32(simulationSize), int32(z)}] = true
 			}
@@ -86,6 +93,23 @@ func main() {
 	// add plane delimiter
 	for key := range delimiterMap {
 		points_delimiter = AddPlane(key, cDelimiter, points_delimiter)
+	}
+	// Simulation delimiter //
+
+	// Water spawner delimiter \\
+	// generate water spawner positions
+	for x := 0; x < sizeWs; x++ {
+		for z := 0; z < sizeWs; z++ {
+			if (x+z)%2 == 0 {
+				waterSpawnerMap[Vec3i32{int32(x), int32(yOffsetWs), int32(z)}] = true
+			}
+		}
+
+	}
+	waterSpawnerMap[Vec3i32{0, -50000, 0}] = true
+	// add plane delimiter
+	for key := range waterSpawnerMap {
+		points_waterSpawner = AddPlane(key, cPlaneWaterSpawner, points_waterSpawner)
 	}
 	// Simulation delimiter //
 
@@ -100,28 +124,26 @@ func main() {
 
 	// Ground \\
 	// generate ground map with 2d noise
-	/*
-		for x := 0; x < simulationSize; x++ {
-			for z := 0; z < simulationSize; z++ {
-				y := Noise2dSimplex(float64(x), float64(z), 0, 1.5, 0.01155, 0, 3) * simulationSize / 4
-				for i := y; i >= 0; i-- {
-					groundMap[Vec3i32{int32(x), int32(i), int32(z)}] = true
-				}
-
-			}
-		}
-	*/
-	// generate ground map with 3d noise
 	for x := 0; x < simulationSize; x++ {
 		for z := 0; z < simulationSize; z++ {
-			for y := 0; y < simulationSize; y++ {
-				noise := Noise3dSimplex(float64(x), float64(y), float64(z), n_n3d, a_n3d, freq_n3d, octave_n3d, seed_n3d)
-				if noise > 0.45 {
-					groundMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
-				}
+			y := Noise2dSimplex(float64(x), float64(z), 0, 1.5, 0.01155, 0, 3) * simulationSize / 3
+			for i := y; i >= 0; i-- {
+				groundMap[Vec3i32{int32(x), int32(i), int32(z)}] = true
 			}
+
 		}
 	}
+	// generate ground map with 3d noise
+	// for x := 0; x < simulationSize; x++ {
+	// 	for z := 0; z < simulationSize; z++ {
+	// 		for y := 0; y < simulationSize; y++ {
+	// 			noise := Noise3dSimplex(float64(x), float64(y), float64(z), n_n3d, a_n3d, freq_n3d, octave_n3d, seed_n3d)
+	// 			if noise > 0.45 {
+	// 				groundMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
+	// 			}
+	// 		}
+	// 	}
+	// }
 	// create outside ground to prevent crash from empty list
 	groundMap[Vec3i32{0, -50000, 0}] = true
 	// get max height mountain
@@ -173,6 +195,11 @@ func main() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_delimiter)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_delimiter), gl.Ptr(points_delimiter), gl.STATIC_DRAW)
 
+	var vbo_waterSpawner uint32
+	gl.GenBuffers(1, &vbo_waterSpawner)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_waterSpawner), gl.Ptr(points_waterSpawner), gl.STATIC_DRAW)
+
 	var vao uint32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
@@ -202,7 +229,7 @@ func main() {
 		setCamera(cameraId, &Mod1)
 
 		if keys.v == "active" || keys.b == "hold" {
-			// do iteration for water
+			// L'ITERATION TAMER
 			iterationMade++
 			// startTotal := time.Now()
 			// startCreateMap := time.Now()
@@ -211,7 +238,7 @@ func main() {
 			// elapsedCreateMap := time.Since(startCreateMap)
 			// fmt.Println("Elapsed CreateMap: ", elapsedCreateMap)
 			// startMoveAllWater := time.Now()
-			moveWater(waterMap, waterMapNew, groundMap)
+			moveWaterSnow(waterMap, waterMapNew, groundMap)
 			// elapsedMoveAllWater := time.Since(startMoveAllWater)
 			// fmt.Println("Elapsed MoveAllWater: ", elapsedMoveAllWater)
 			// startCopyWater := time.Now()
@@ -241,15 +268,71 @@ func main() {
 			// fmt.Println()
 		}
 
-		if keys.c == "active" {
-			// add water
+		if keys.right == "hold" {
+			if zOffsetWS <= simulationSize-1 {
+				zOffsetWS++
+			}
+		}
+		if keys.left == "hold" {
+			if zOffsetWS > 0 {
+				zOffsetWS--
+			}
+		}
+		if keys.up == "hold" {
+			if xOffsetWS <= simulationSize-1 {
+				xOffsetWS++
+			}
+		}
+		if keys.down == "hold" {
+			if xOffsetWS > 0 {
+				xOffsetWS--
+			}
+		}
+		if keys.multiply == "hold" {
+			yOffsetWs++
+		}
+		if keys.divide == "hold" {
+			if yOffsetWs > 0 {
+				yOffsetWs--
+			}
+		}
+		if keys.add == "hold" {
+			sizeWs++
+		}
+		if keys.minus == "hold" {
+			if sizeWs > 1 {
+				sizeWs--
+			}
+		}
+		if keys.right == "hold" || keys.left == "hold" || keys.up == "hold" || keys.down == "hold" || keys.add == "hold" || keys.minus == "hold" || keys.multiply == "hold" || keys.divide == "hold" {
+			points_waterSpawner = []float32{}
+			waterSpawnerMap = make(map[Vec3i32]bool)
+			waterSpawnerMap[Vec3i32{0, -50000, 0}] = true
+			// generate new water spawner positions
+			for x := 0; x < sizeWs; x++ {
+				for z := 0; z < sizeWs; z++ {
+					if (x+z)%2 == 0 {
+						if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
+							waterSpawnerMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = true
+						}
+					}
+				}
+			}
+			for key := range waterSpawnerMap {
+				points_waterSpawner = AddPlane(key, cPlaneWaterSpawner, points_waterSpawner)
+			}
+			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
+			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_waterSpawner), gl.Ptr(points_waterSpawner), gl.DYNAMIC_DRAW)
+		}
+
+		if keys.r == "hold" {
+			// LA PLUIE
 			points_water = []float32{}
 
 			for x := 0; x < simulationSize; x++ {
 				for z := 0; z < simulationSize; z++ {
-					y := rand.Float64()*25 + simulationSize
-					if rand.Float64() > 0.75 {
-						waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
+					if rand.Float64() > 0.999 {
+						waterMap[Vec3i32{int32(x), int32(simulationSize + 1), int32(z)}] = true
 					}
 				}
 			}
@@ -261,19 +344,15 @@ func main() {
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
 		}
 
-		if keys.x == "hold" {
-			// add water
+		if keys.c == "hold" {
+			// LA VAGUE
 			points_water = []float32{}
 
-			//waterMap[Vec3i32{0, simulationSize, 0}] = 1
-			//waterMap[Vec3i32{1, simulationSize, 0}] = 1
-			//waterMap[Vec3i32{0, simulationSize, 1}] = 1
-			//waterMap[Vec3i32{1, simulationSize, 1}] = 1
-			//waterMap[Vec3i32{2, simulationSize, 2}] = 1
-
-			for i := 0; i < simulationSize; i++ {
-				for y := 0; y < simulationSize; y++ {
-					waterMap[Vec3i32{int32(i), int32(y), 0}] = true
+			for x := 0; x < simulationSize; x++ {
+				for z := 0; z < 3; z++ {
+					for y := 0; y < simulationSize; y++ {
+						waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
+					}
 				}
 			}
 
@@ -285,14 +364,14 @@ func main() {
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
 		}
 		if keys.z == "hold" {
-			// add water
+			// LA GROSSE PLUIE SAMER DEPUIS LE SPAWNER
 			points_water = []float32{}
-
-			wow := simulationSize / 10
-			for i := (simulationSize / 2) - wow; i < (simulationSize/2)+wow; i++ {
-				for ip := (simulationSize / 2) - wow; ip < (simulationSize/2)+wow; ip++ {
-					if rand.Float64() > 0.95 {
-						waterMap[Vec3i32{int32(i), simulationSize, int32(ip)}] = true
+			for x := 0; x < sizeWs; x++ {
+				for z := 0; z < sizeWs; z++ {
+					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
+						if rand.Float64() > 0.75 {
+							waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = true
+						}
 					}
 				}
 			}
@@ -311,7 +390,7 @@ func main() {
 		gl.EnableVertexAttribArray(0)
 		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
 		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_ground)/3))
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_ground)/6))
 
 		gl.BindVertexArray(vao)
 		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_delimiter)
@@ -319,7 +398,15 @@ func main() {
 		gl.EnableVertexAttribArray(0)
 		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
 		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_delimiter)/3))
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_delimiter)/6))
+
+		gl.BindVertexArray(vao)
+		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
+		gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
+		gl.EnableVertexAttribArray(0)
+		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
+		gl.EnableVertexAttribArray(1)
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_waterSpawner)/6))
 
 		gl.BindVertexArray(vao)
 		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
@@ -327,7 +414,7 @@ func main() {
 		gl.EnableVertexAttribArray(0)
 		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
 		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_water)/3))
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_water)/6))
 
 		// print text
 		gl.Finish()

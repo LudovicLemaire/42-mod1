@@ -59,7 +59,7 @@ func AddCube(pos Vec3i32, rgb mgl32.Vec3, points []float32) []float32 {
 }
 
 func AddPlane(pos Vec3i32, rgb mgl32.Vec3, points []float32) []float32 {
-	newCube := []float32{
+	newPlane := []float32{
 		0.0 + float32(pos[0]), 0.0 + float32(pos[1]), 0.0 + float32(pos[2]), rgb[0], rgb[1], rgb[2],
 		1.0 + float32(pos[0]), 0.0 + float32(pos[1]), 0.0 + float32(pos[2]), rgb[0], rgb[1], rgb[2],
 		0.0 + float32(pos[0]), 0.0 + float32(pos[1]), 1.0 + float32(pos[2]), rgb[0], rgb[1], rgb[2],
@@ -68,6 +68,6 @@ func AddPlane(pos Vec3i32, rgb mgl32.Vec3, points []float32) []float32 {
 		1.0 + float32(pos[0]), 0.0 + float32(pos[1]), 1.0 + float32(pos[2]), rgb[0], rgb[1], rgb[2],
 		0.0 + float32(pos[0]), 0.0 + float32(pos[1]), 1.0 + float32(pos[2]), rgb[0], rgb[1], rgb[2],
 	}
-	points = append(points, newCube...)
+	points = append(points, newPlane...)
 	return points
 }

@@ -10,11 +10,12 @@ import (
 
 type Keys struct {
 	escape      string
-	t           string
-	v           string
+	b           string
 	c           string
 	l           string
-	b           string
+	r           string
+	t           string
+	v           string
 	x           string
 	z           string
 	shift       string
@@ -25,15 +26,24 @@ type Keys struct {
 	kp5         string
 	kp6         string
 	graveAccent string
+	right       string
+	left        string
+	up          string
+	down        string
+	add         string
+	minus       string
+	multiply    string
+	divide      string
 }
 
 func initKeys(keys *Keys) {
 	keys.escape = "null"
-	keys.t = "null"
-	keys.v = "null"
+	keys.b = "null"
 	keys.c = "null"
 	keys.l = "null"
-	keys.b = "null"
+	keys.r = "null"
+	keys.t = "null"
+	keys.v = "null"
 	keys.x = "null"
 	keys.z = "null"
 	keys.shift = "null"
@@ -44,6 +54,15 @@ func initKeys(keys *Keys) {
 	keys.kp5 = "null"
 	keys.kp6 = "null"
 	keys.graveAccent = "null"
+	keys.right = "null"
+	keys.left = "null"
+	keys.up = "null"
+	keys.down = "null"
+	keys.add = "null"
+	keys.minus = "null"
+	keys.multiply = "null"
+	keys.divide = "null"
+
 }
 
 func initGameValues(gameValues *GameValues) {
@@ -51,6 +70,7 @@ func initGameValues(gameValues *GameValues) {
 	gameValues.polygonMode = false
 }
 
+/*
 func _keyboardRotation(mod1 *Mod1) {
 	if glfw.GetCurrentContext().GetKey(glfw.KeyLeft) == 1 {
 		mod1.rot = mod1.rot.Sub(mgl32.Vec3{0, 0.05, 0})
@@ -66,6 +86,7 @@ func _keyboardRotation(mod1 *Mod1) {
 		mod1.rot = mod1.rot.Add(mgl32.Vec3{0.05, 0, 0})
 	}
 }
+*/
 
 func _keyboardTranslate(mod1 *Mod1, multiplier float32) {
 	move := mgl32.Vec3{0, 0, 0}
@@ -131,11 +152,12 @@ func getKeyStatus(key glfw.Key, status string) string {
 
 func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameValues, whiteUniform int32) {
 	k.escape = getKeyStatus(glfw.KeyEscape, k.escape)
-	k.t = getKeyStatus(glfw.KeyT, k.t)
-	k.v = getKeyStatus(glfw.KeyV, k.v)
+	k.b = getKeyStatus(glfw.KeyB, k.b)
 	k.c = getKeyStatus(glfw.KeyC, k.c)
 	k.l = getKeyStatus(glfw.KeyL, k.l)
-	k.b = getKeyStatus(glfw.KeyB, k.b)
+	k.r = getKeyStatus(glfw.KeyR, k.r)
+	k.t = getKeyStatus(glfw.KeyT, k.t)
+	k.v = getKeyStatus(glfw.KeyV, k.v)
 	k.x = getKeyStatus(glfw.KeyX, k.x)
 	k.z = getKeyStatus(glfw.KeyZ, k.z)
 	k.shift = getKeyStatus(glfw.KeyLeftShift, k.shift)
@@ -146,6 +168,14 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	k.kp5 = getKeyStatus(glfw.KeyKP5, k.kp5)
 	k.kp6 = getKeyStatus(glfw.KeyKP6, k.kp6)
 	k.graveAccent = getKeyStatus(glfw.KeyGraveAccent, k.graveAccent)
+	k.right = getKeyStatus(glfw.KeyRight, k.right)
+	k.left = getKeyStatus(glfw.KeyLeft, k.left)
+	k.up = getKeyStatus(glfw.KeyUp, k.up)
+	k.down = getKeyStatus(glfw.KeyDown, k.down)
+	k.add = getKeyStatus(glfw.KeyKPAdd, k.add)
+	k.minus = getKeyStatus(glfw.KeyKPSubtract, k.minus)
+	k.multiply = getKeyStatus(glfw.KeyKPMultiply, k.multiply)
+	k.divide = getKeyStatus(glfw.KeyKPDivide, k.divide)
 
 	if k.escape == "active" {
 		os.Exit(1)
@@ -193,5 +223,5 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	}
 
 	_keyboardTranslate(mod1, gameValues.speed)
-	_keyboardRotation(mod1)
+	//_keyboardRotation(mod1)
 }
