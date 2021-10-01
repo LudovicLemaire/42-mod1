@@ -21,7 +21,7 @@ type ScreenData struct {
 const (
 	width          = 900 //900 // 1600
 	height         = 700 //700 // 900
-	simulationSize = 100
+	simulationSize = 60
 )
 
 type Mod1 struct {
@@ -335,8 +335,10 @@ func main() {
 			for x := 0; x < sizeWs; x++ {
 				for z := 0; z < sizeWs; z++ {
 					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
-						if rand.Float64() > 0.75 {
-							waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = true
+						if !groundMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] {
+							if rand.Float64() > 0.75 {
+								waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = true
+							}
 						}
 					}
 				}
@@ -348,6 +350,47 @@ func main() {
 
 			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
+		}
+
+		if keys.x == "hold" {
+			// ENLEVER LA GROSSE PLUIE SAMER DEPUIS LE SPAWNER
+			points_water = []float32{}
+			for x := 0; x < sizeWs; x++ {
+				for z := 0; z < sizeWs; z++ {
+					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
+						waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = false
+					}
+				}
+			}
+
+			for key := range waterMap {
+				if waterMap[key] {
+					points_water = AddCube(key, cWater, points_water)
+				}
+			}
+
+			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
+			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
+		}
+
+		if keys.q == "hold" {
+			// ENLEVER LE SOL DEPUIS LE SPAWNER
+			points_ground = []float32{}
+			for x := 0; x < sizeWs; x++ {
+				for z := 0; z < sizeWs; z++ {
+					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
+						groundMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = false
+					}
+				}
+			}
+			for key := range groundMap {
+				if groundMap[key] {
+					points_ground = AddCube(key, cGround, points_ground)
+				}
+			}
+
+			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_ground)
+			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_ground), gl.Ptr(points_ground), gl.DYNAMIC_DRAW)
 		}
 
 		gl.BindVertexArray(vao)

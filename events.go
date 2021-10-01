@@ -10,6 +10,7 @@ import (
 
 type Keys struct {
 	escape      string
+	q           string
 	b           string
 	c           string
 	l           string
@@ -38,6 +39,7 @@ type Keys struct {
 
 func initKeys(keys *Keys) {
 	keys.escape = "null"
+	keys.q = "null"
 	keys.b = "null"
 	keys.c = "null"
 	keys.l = "null"
@@ -152,6 +154,7 @@ func getKeyStatus(key glfw.Key, status string) string {
 
 func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameValues, whiteUniform int32) {
 	k.escape = getKeyStatus(glfw.KeyEscape, k.escape)
+	k.q = getKeyStatus(glfw.KeyQ, k.q)
 	k.b = getKeyStatus(glfw.KeyB, k.b)
 	k.c = getKeyStatus(glfw.KeyC, k.c)
 	k.l = getKeyStatus(glfw.KeyL, k.l)
