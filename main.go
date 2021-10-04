@@ -39,12 +39,16 @@ var (
 	cWater                             = mgl32.Vec3{0.12, 0.58, 0.94}
 	cDelimiter                         = mgl32.Vec3{0.95, 0.26, 0.21}
 	cPlaneWaterSpawner                 = mgl32.Vec3{1.0, 1.0, 1.0}
-	iterationMade                      = 0
+	iterationMade                int   = 0
 	maxMountainHeight            int32 = 0
 	zOffsetWS                    int   = 0
 	xOffsetWS                    int   = 0
 	yOffsetWs                    int   = simulationSize - 1
 	sizeWs                       int   = simulationSize / 4
+	floodScenario                bool  = false
+	startFloodScenario                 = time.Now()
+	currFloodLevel               int   = 0
+	iterationActive              bool  = false
 )
 
 var (
@@ -230,7 +234,7 @@ func main() {
 		EventsMouse(&Mod1)
 		setCamera(cameraId, &Mod1)
 
-		if keys.v == "active" || keys.b == "hold" {
+		if keys.v == "active" || iterationActive {
 			// L'ITERATION TAMER
 			iterationMade++
 			// startTotal := time.Now()
@@ -298,7 +302,9 @@ func main() {
 			for x := 0; x < simulationSize; x++ {
 				for z := 0; z < simulationSize; z++ {
 					if rand.Float64() > 0.999 {
-						waterMap[Vec3i32{int32(x), int32(simulationSize + 1), int32(z)}] = true
+						if !groundMap[Vec3i32{int32(x), int32(simulationSize + 1), int32(z)}] {
+							waterMap[Vec3i32{int32(x), int32(simulationSize + 1), int32(z)}] = true
+						}
 					}
 				}
 			}
@@ -317,7 +323,9 @@ func main() {
 			for x := 0; x < simulationSize; x++ {
 				for z := 0; z < 3; z++ {
 					for y := 0; y < simulationSize; y++ {
-						waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
+						if !groundMap[Vec3i32{int32(x), int32(y), int32(z)}] {
+							waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
+						}
 					}
 				}
 			}
@@ -358,7 +366,9 @@ func main() {
 			for x := 0; x < sizeWs; x++ {
 				for z := 0; z < sizeWs; z++ {
 					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
-						waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = false
+						if !groundMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] {
+							waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = false
+						}
 					}
 				}
 			}
@@ -391,6 +401,30 @@ func main() {
 
 			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_ground)
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_ground), gl.Ptr(points_ground), gl.DYNAMIC_DRAW)
+		}
+
+		if floodScenario {
+			elapsedFloodScenario := time.Since(startFloodScenario)
+			var floodLevel int = int(elapsedFloodScenario.Seconds() / 1)
+			if currFloodLevel != floodLevel && currFloodLevel < simulationSize {
+				currFloodLevel = floodLevel
+				points_water = []float32{}
+				for x := 0; x < simulationSize; x++ {
+					for z := 0; z < simulationSize; z++ {
+						if !groundMap[Vec3i32{int32(x), int32(currFloodLevel), int32(z)}] {
+							waterMap[Vec3i32{int32(x), int32(currFloodLevel), int32(z)}] = true
+						}
+					}
+
+				}
+
+				for key := range waterMap {
+					points_water = AddCube(key, cWater, points_water)
+				}
+
+				gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
+				gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
+			}
 		}
 
 		gl.BindVertexArray(vao)

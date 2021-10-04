@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -13,6 +14,7 @@ type Keys struct {
 	q           string
 	b           string
 	c           string
+	f           string
 	l           string
 	r           string
 	t           string
@@ -42,6 +44,7 @@ func initKeys(keys *Keys) {
 	keys.q = "null"
 	keys.b = "null"
 	keys.c = "null"
+	keys.f = "null"
 	keys.l = "null"
 	keys.r = "null"
 	keys.t = "null"
@@ -157,6 +160,7 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	k.q = getKeyStatus(glfw.KeyQ, k.q)
 	k.b = getKeyStatus(glfw.KeyB, k.b)
 	k.c = getKeyStatus(glfw.KeyC, k.c)
+	k.f = getKeyStatus(glfw.KeyF, k.f)
 	k.l = getKeyStatus(glfw.KeyL, k.l)
 	k.r = getKeyStatus(glfw.KeyR, k.r)
 	k.t = getKeyStatus(glfw.KeyT, k.t)
@@ -206,6 +210,10 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	} else if k.shift == "released" {
 		gameValues.speed /= 2.5
 	}
+	if k.f == "active" {
+		floodScenario = !floodScenario
+		startFloodScenario = time.Now()
+	}
 
 	if k.t == "active" {
 		if colorTest.r == 1.0 {
@@ -223,6 +231,9 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 			gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 			gameValues.polygonMode = true
 		}
+	}
+	if k.b == "active" {
+		iterationActive = !iterationActive
 	}
 
 	if k.right == "hold" {
