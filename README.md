@@ -1,5 +1,4 @@
-# Golang-OpenGL-template
-Simple Golang/OpenGL template I did so I can reuse it when I need to test so graphical representation, mostly for school projects.
+# Mod1
 
 ## Excecute
 ```
@@ -9,19 +8,19 @@ go run .
 * Golang
 * OpenGL 4.1
 - - -
-## It has
-* a complete event handling, with different states (click, hold, released, null).
-* a camera to move around
-* a buffer ready to draw triangle/color from a slice.
-
-![subdivide](.git_resources/octahedron.gif)
-
-* buffer modification in real-time, here an example by subdividing triangles into 4. Where noise is applyied to render a planet.
-
-![subdivide](.git_resources/subdivide2.gif)
-![subdivide](.git_resources/subdivide.gif)
-
-`/!\
-Overall code isn't cleaned nor commented.
-It's just a quick and dirty way for me to test stuff.
-/!\`
+## Keys
+* `WASD` to move
+* `mouse` to move camera
+* `123456` for camera speed (`1` is lowest)
+* `arrows` to move spawner
+* `*/` to up/down spawner
+* `+-` to increase/decrease spawner size
+* `I` to start/stop iterations
+* `U` to do 1 iteration
+* `R` for raining sceneriof
+* `T` for Wave Scenario
+* `Y` for Flood Scenario
+* `F` to spawn water from spawner
+* `G` to remove water from spawner
+* `H` to remove ground from spawner
+* `L` for Polygon modes

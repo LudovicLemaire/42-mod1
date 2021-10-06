@@ -31,24 +31,39 @@ type Mod1 struct {
 
 var (
 	_oldMousePosX, _oldMousePosY float64
-	points_ground                      = []float32{}
-	points_water                       = []float32{}
-	points_delimiter                   = []float32{}
-	points_waterSpawner                = []float32{}
-	cGround                            = mgl32.Vec3{0.29, 0.68, 0.31}
-	cWater                             = mgl32.Vec3{0.12, 0.58, 0.94}
-	cDelimiter                         = mgl32.Vec3{0.95, 0.26, 0.21}
-	cPlaneWaterSpawner                 = mgl32.Vec3{1.0, 1.0, 1.0}
-	iterationMade                int   = 0
-	maxMountainHeight            int32 = 0
-	zOffsetWS                    int   = 0
-	xOffsetWS                    int   = 0
-	yOffsetWs                    int   = simulationSize - 1
-	sizeWs                       int   = simulationSize / 4
-	floodScenario                bool  = false
-	startFloodScenario                 = time.Now()
-	currFloodLevel               int   = 0
-	iterationActive              bool  = false
+	points_ground                = []float32{}
+	points_water                 = []float32{}
+	points_delimiter             = []float32{}
+	points_waterSpawner          = []float32{}
+
+	cGround            = mgl32.Vec3{0.29, 0.68, 0.31}
+	cWater             = mgl32.Vec3{0.12, 0.58, 0.94}
+	cDelimiter         = mgl32.Vec3{0.95, 0.26, 0.21}
+	cPlaneWaterSpawner = mgl32.Vec3{1.0, 1.0, 1.0}
+
+	iterationMade      int   = 0
+	maxMountainHeight  int32 = 0
+	zOffsetWS          int   = 0
+	xOffsetWS          int   = 0
+	yOffsetWs          int   = simulationSize - 1
+	sizeWs             int   = simulationSize / 4
+	rainScenario       bool  = false
+	waveScenario       bool  = false
+	floodScenario      bool  = false
+	startFloodScenario       = time.Now()
+	currFloodLevel     int   = 0
+	iterationActive    bool  = false
+
+	groundMap       map[Vec3i32]bool = make(map[Vec3i32]bool)
+	waterMap        map[Vec3i32]bool = make(map[Vec3i32]bool)
+	delimiterMap    map[Vec3i32]bool = make(map[Vec3i32]bool)
+	waterSpawnerMap map[Vec3i32]bool = make(map[Vec3i32]bool)
+
+	vbo_water        uint32
+	vbo_ground       uint32
+	vbo_delimiter    uint32
+	vbo_waterSpawner uint32
+	vao              uint32
 )
 
 var (
@@ -77,11 +92,6 @@ func main() {
 	var screenData ScreenData
 	var err error
 	NoiseInitPermtables(69)
-
-	groundMap := make(map[Vec3i32]bool)
-	waterMap := make(map[Vec3i32]bool)
-	delimiterMap := make(map[Vec3i32]bool)
-	waterSpawnerMap := make(map[Vec3i32]bool)
 
 	//                                                        INITIALISATION MAP/WATER                                                       \\
 	// Simulation delimiter \\
@@ -186,27 +196,22 @@ func main() {
 	gl.PolygonMode(gl.FRONT_AND_BACK, gl.POINT)
 	gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
 
-	var vbo_ground uint32
 	gl.GenBuffers(1, &vbo_ground)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_ground)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_ground), gl.Ptr(points_ground), gl.STATIC_DRAW)
 
-	var vbo_water uint32
 	gl.GenBuffers(1, &vbo_water)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.STATIC_DRAW)
 
-	var vbo_delimiter uint32
 	gl.GenBuffers(1, &vbo_delimiter)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_delimiter)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_delimiter), gl.Ptr(points_delimiter), gl.STATIC_DRAW)
 
-	var vbo_waterSpawner uint32
 	gl.GenBuffers(1, &vbo_waterSpawner)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_waterSpawner), gl.Ptr(points_waterSpawner), gl.STATIC_DRAW)
 
-	var vao uint32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
 
@@ -234,232 +239,26 @@ func main() {
 		EventsMouse(&Mod1)
 		setCamera(cameraId, &Mod1)
 
-		if keys.v == "active" || iterationActive {
-			// L'ITERATION TAMER
+		if iterationActive || keys.u == "active" {
 			iterationMade++
-			// startTotal := time.Now()
-			// startCreateMap := time.Now()
 			points_water = []float32{}
 			waterMapNew := make(map[Vec3i32]bool)
-			// elapsedCreateMap := time.Since(startCreateMap)
-			// fmt.Println("Elapsed CreateMap: ", elapsedCreateMap)
-			// startMoveAllWater := time.Now()
-			MoveWaterFloodfill(waterMap, waterMapNew, groundMap)
-			// elapsedMoveAllWater := time.Since(startMoveAllWater)
-			// fmt.Println("Elapsed MoveAllWater: ", elapsedMoveAllWater)
-			// startCopyWater := time.Now()
+			MoveWater(waterMap, waterMapNew, groundMap)
 			waterMap = waterMapNew
-
-			//for k, v := range waterMapPassive {
-			//	waterMapNew[k] = v
-			//}
-
-			// elapsedCopyWater := time.Since(startCopyWater)
-			// fmt.Println("Elapsed CopyWater: ", elapsedCopyWater)
-			// startCreateCube := time.Now()
 			for key := range waterMapNew {
 				if waterMapNew[key] {
 					points_water = AddCube(key, cWater, points_water)
 				}
 			}
-			// elapsedCreateCube := time.Since(startCreateCube)
-			// fmt.Println("Elapsed CreateCube: ", elapsedCreateCube)
-			// startBufferData := time.Now()
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
-			// elapsedBufferData := time.Since(startBufferData)
-			// fmt.Println("Elapsed BufferData: ", elapsedBufferData)
-			// elapsedTotal := time.Since(startTotal)
-			// fmt.Println("Elapsed Total: ", elapsedTotal)
-			// fmt.Println()
-		}
-
-		if keys.right == "hold" || keys.left == "hold" || keys.up == "hold" || keys.down == "hold" || keys.add == "hold" || keys.minus == "hold" || keys.multiply == "hold" || keys.divide == "hold" {
-			points_waterSpawner = []float32{}
-			waterSpawnerMap = make(map[Vec3i32]bool)
-			waterSpawnerMap[Vec3i32{0, -50000, 0}] = true
-			// generate new water spawner positions
-			for x := 0; x < sizeWs; x++ {
-				for z := 0; z < sizeWs; z++ {
-					if (x+z)%2 == 0 {
-						if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
-							waterSpawnerMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = true
-						}
-					}
-				}
-			}
-			for key := range waterSpawnerMap {
-				points_waterSpawner = AddPlane(key, cPlaneWaterSpawner, points_waterSpawner)
-			}
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_waterSpawner), gl.Ptr(points_waterSpawner), gl.DYNAMIC_DRAW)
-		}
-
-		if keys.r == "hold" {
-			// LA PLUIE
-			points_water = []float32{}
-
-			for x := 0; x < simulationSize; x++ {
-				for z := 0; z < simulationSize; z++ {
-					if rand.Float64() > 0.999 {
-						if !groundMap[Vec3i32{int32(x), int32(simulationSize + 1), int32(z)}] {
-							waterMap[Vec3i32{int32(x), int32(simulationSize + 1), int32(z)}] = true
-						}
-					}
-				}
-			}
-			for key := range waterMap {
-				points_water = AddCube(key, cWater, points_water)
-			}
-
 			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
 		}
 
-		if keys.c == "hold" {
-			// LA VAGUE
-			points_water = []float32{}
+		AllScenarios()
+		SpawnerScenarios(keys)
 
-			for x := 0; x < simulationSize; x++ {
-				for z := 0; z < 3; z++ {
-					for y := 0; y < simulationSize; y++ {
-						if !groundMap[Vec3i32{int32(x), int32(y), int32(z)}] {
-							waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
-						}
-					}
-				}
-			}
+		sendBuffers()
 
-			for key := range waterMap {
-				points_water = AddCube(key, cWater, points_water)
-			}
-
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
-		}
-		if keys.z == "hold" {
-			// LA GROSSE PLUIE SAMER DEPUIS LE SPAWNER
-			points_water = []float32{}
-			for x := 0; x < sizeWs; x++ {
-				for z := 0; z < sizeWs; z++ {
-					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
-						if !groundMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] {
-							if rand.Float64() > 0.75 {
-								waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = true
-							}
-						}
-					}
-				}
-			}
-
-			for key := range waterMap {
-				points_water = AddCube(key, cWater, points_water)
-			}
-
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
-		}
-
-		if keys.x == "hold" {
-			// ENLEVER LA GROSSE PLUIE SAMER DEPUIS LE SPAWNER
-			points_water = []float32{}
-			for x := 0; x < sizeWs; x++ {
-				for z := 0; z < sizeWs; z++ {
-					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
-						if !groundMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] {
-							waterMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = false
-						}
-					}
-				}
-			}
-
-			for key := range waterMap {
-				if waterMap[key] {
-					points_water = AddCube(key, cWater, points_water)
-				}
-			}
-
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
-		}
-
-		if keys.q == "hold" {
-			// ENLEVER LE SOL DEPUIS LE SPAWNER
-			points_ground = []float32{}
-			for x := 0; x < sizeWs; x++ {
-				for z := 0; z < sizeWs; z++ {
-					if z+zOffsetWS < simulationSize && x+xOffsetWS < simulationSize && z+zOffsetWS >= 0 && x+xOffsetWS >= 0 {
-						groundMap[Vec3i32{int32(x + xOffsetWS), int32(yOffsetWs), int32(z + zOffsetWS)}] = false
-					}
-				}
-			}
-			for key := range groundMap {
-				if groundMap[key] {
-					points_ground = AddCube(key, cGround, points_ground)
-				}
-			}
-
-			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_ground)
-			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_ground), gl.Ptr(points_ground), gl.DYNAMIC_DRAW)
-		}
-
-		if floodScenario {
-			elapsedFloodScenario := time.Since(startFloodScenario)
-			var floodLevel int = int(elapsedFloodScenario.Seconds() / 1)
-			if currFloodLevel != floodLevel && currFloodLevel < simulationSize {
-				currFloodLevel = floodLevel
-				points_water = []float32{}
-				for x := 0; x < simulationSize; x++ {
-					for z := 0; z < simulationSize; z++ {
-						if !groundMap[Vec3i32{int32(x), int32(currFloodLevel), int32(z)}] {
-							waterMap[Vec3i32{int32(x), int32(currFloodLevel), int32(z)}] = true
-						}
-					}
-
-				}
-
-				for key := range waterMap {
-					points_water = AddCube(key, cWater, points_water)
-				}
-
-				gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-				gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
-			}
-		}
-
-		gl.BindVertexArray(vao)
-		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_ground)
-		gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
-		gl.EnableVertexAttribArray(0)
-		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
-		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_ground)/6))
-
-		gl.BindVertexArray(vao)
-		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_delimiter)
-		gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
-		gl.EnableVertexAttribArray(0)
-		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
-		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_delimiter)/6))
-
-		gl.BindVertexArray(vao)
-		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
-		gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
-		gl.EnableVertexAttribArray(0)
-		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
-		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_waterSpawner)/6))
-
-		gl.BindVertexArray(vao)
-		gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
-		gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
-		gl.EnableVertexAttribArray(0)
-		gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
-		gl.EnableVertexAttribArray(1)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_water)/6))
-
-		// print text
 		gl.Finish()
 		if keys.graveAccent == "hold" {
 			displayScreenInfo(screenData, len(waterMap), len(groundMap), iterationMade)
@@ -533,10 +332,6 @@ func init() {
 	runtime.LockOSThread()
 }
 
-/*
-	fmt.Println(len(points) / 6 / 3)
-*/
-
 func displayScreenInfo(screenData ScreenData, totalWater, totalGround, iterationMade int) {
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
@@ -554,7 +349,36 @@ func displayScreenInfo(screenData ScreenData, totalWater, totalGround, iteration
 	screenData.font.Printf(100, 60, 1.0, "%d", iterationMade)
 }
 
-/*
-start := time.Now()
-elapsed := time.Since(start)
-*/
+func sendBuffers() {
+	gl.BindVertexArray(vao)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_ground)
+	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
+	gl.EnableVertexAttribArray(0)
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
+	gl.EnableVertexAttribArray(1)
+	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_ground)/6))
+
+	gl.BindVertexArray(vao)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_delimiter)
+	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
+	gl.EnableVertexAttribArray(0)
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
+	gl.EnableVertexAttribArray(1)
+	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_delimiter)/6))
+
+	gl.BindVertexArray(vao)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_waterSpawner)
+	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
+	gl.EnableVertexAttribArray(0)
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
+	gl.EnableVertexAttribArray(1)
+	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_waterSpawner)/6))
+
+	gl.BindVertexArray(vao)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
+	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 6*4, 0)
+	gl.EnableVertexAttribArray(0)
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 6*4, 3*4)
+	gl.EnableVertexAttribArray(1)
+	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(points_water)/6))
+}

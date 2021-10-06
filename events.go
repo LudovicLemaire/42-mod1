@@ -15,11 +15,16 @@ type Keys struct {
 	b           string
 	c           string
 	f           string
+	g           string
+	h           string
+	i           string
 	l           string
+	u           string
 	r           string
 	t           string
 	v           string
 	x           string
+	y           string
 	z           string
 	shift       string
 	kp1         string
@@ -45,11 +50,16 @@ func initKeys(keys *Keys) {
 	keys.b = "null"
 	keys.c = "null"
 	keys.f = "null"
+	keys.g = "null"
+	keys.h = "null"
+	keys.i = "null"
 	keys.l = "null"
+	keys.u = "null"
 	keys.r = "null"
 	keys.t = "null"
 	keys.v = "null"
 	keys.x = "null"
+	keys.y = "null"
 	keys.z = "null"
 	keys.shift = "null"
 	keys.kp1 = "null"
@@ -155,17 +165,27 @@ func getKeyStatus(key glfw.Key, status string) string {
 	return status
 }
 
+func stopWave() {
+	time.Sleep(1 * time.Second)
+	waveScenario = false
+}
+
 func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameValues, whiteUniform int32) {
 	k.escape = getKeyStatus(glfw.KeyEscape, k.escape)
 	k.q = getKeyStatus(glfw.KeyQ, k.q)
 	k.b = getKeyStatus(glfw.KeyB, k.b)
 	k.c = getKeyStatus(glfw.KeyC, k.c)
 	k.f = getKeyStatus(glfw.KeyF, k.f)
+	k.g = getKeyStatus(glfw.KeyG, k.g)
+	k.h = getKeyStatus(glfw.KeyH, k.h)
+	k.i = getKeyStatus(glfw.KeyI, k.i)
 	k.l = getKeyStatus(glfw.KeyL, k.l)
+	k.u = getKeyStatus(glfw.KeyU, k.u)
 	k.r = getKeyStatus(glfw.KeyR, k.r)
 	k.t = getKeyStatus(glfw.KeyT, k.t)
 	k.v = getKeyStatus(glfw.KeyV, k.v)
 	k.x = getKeyStatus(glfw.KeyX, k.x)
+	k.y = getKeyStatus(glfw.KeyY, k.y)
 	k.z = getKeyStatus(glfw.KeyZ, k.z)
 	k.shift = getKeyStatus(glfw.KeyLeftShift, k.shift)
 	k.kp1 = getKeyStatus(glfw.KeyKP1, k.kp1)
@@ -210,12 +230,19 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 	} else if k.shift == "released" {
 		gameValues.speed /= 2.5
 	}
-	if k.f == "active" {
+	if k.y == "active" {
 		floodScenario = !floodScenario
 		startFloodScenario = time.Now()
 	}
-
+	if k.r == "active" {
+		rainScenario = !rainScenario
+	}
 	if k.t == "active" {
+		waveScenario = !waveScenario
+		go stopWave()
+	}
+
+	if k.q == "active" {
 		if colorTest.r == 1.0 {
 			colorTest.r = 0.0
 		} else {
@@ -232,7 +259,7 @@ func EventsKeyboard(mod1 *Mod1, colorTest *ColorRGB, k *Keys, gameValues *GameVa
 			gameValues.polygonMode = true
 		}
 	}
-	if k.b == "active" {
+	if k.i == "active" {
 		iterationActive = !iterationActive
 	}
 
