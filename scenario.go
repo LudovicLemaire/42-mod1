@@ -30,7 +30,7 @@ func AllScenarios() {
 		points_water = []float32{}
 		for x := 0; x < simulationSize; x++ {
 			for z := 0; z < 3; z++ {
-				for y := 0; y < simulationSize; y++ {
+				for y := 0; y < simulationSize/4*3; y++ {
 					if !groundMap[Vec3i32{int32(x), int32(y), int32(z)}] {
 						waterMap[Vec3i32{int32(x), int32(y), int32(z)}] = true
 					}
