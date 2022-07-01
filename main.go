@@ -21,7 +21,7 @@ type ScreenData struct {
 const (
 	width          = 900 //900 // 1600
 	height         = 700 //700 // 900
-	simulationSize = 60
+	simulationSize = 100
 )
 
 type Mod1 struct {
@@ -36,8 +36,9 @@ var (
 	points_delimiter             = []float32{}
 	points_waterSpawner          = []float32{}
 
+	// cWater             = mgl32.Vec3{0.12, 0.58, 0.94}
 	cGround            = mgl32.Vec3{0.29, 0.68, 0.31}
-	cWater             = mgl32.Vec3{0.12, 0.58, 0.94}
+	cWater             = mgl32.Vec3{1, 1, 1}
 	cDelimiter         = mgl32.Vec3{0.95, 0.26, 0.21}
 	cPlaneWaterSpawner = mgl32.Vec3{1.0, 1.0, 1.0}
 
@@ -69,8 +70,8 @@ var (
 var (
 	n_n3d      float64 = 0
 	a_n3d      float64 = 1.0
-	freq_n3d   float64 = 0.025 //0.105
-	octave_n3d int     = 1
+	freq_n3d   float64 = 0.015 //0.105
+	octave_n3d int     = 5
 	seed_n3d   int     = 0
 )
 
@@ -123,9 +124,10 @@ func main() {
 	}
 	waterSpawnerMap[Vec3i32{0, -50000, 0}] = true
 	// add plane delimiter
-	for key := range waterSpawnerMap {
-		points_waterSpawner = AddPlane(key, cPlaneWaterSpawner, points_waterSpawner)
-	}
+	// for key := range waterSpawnerMap {
+	// 	points_waterSpawner = AddPlane(key, cPlaneWaterSpawner, points_waterSpawner)
+	// }
+	points_waterSpawner = AddPlane(Vec3i32{0, -50000, 0}, cPlaneWaterSpawner, points_waterSpawner)
 	// Simulation delimiter //
 
 	// Water \\
@@ -170,11 +172,12 @@ func main() {
 		}
 	}
 	// add cube ground
-	for key := range groundMap {
-		if groundMap[key] {
-			points_ground = AddCube(key, cGround, points_ground)
-		}
-	}
+	// for key := range groundMap {
+	// 	if groundMap[key] {
+	// 		points_ground = AddCube(key, cGround, points_ground)
+	// 	}
+	// }
+	points_ground = AddCube(Vec3i32{0, -50000, 0}, cGround, points_ground)
 	// Ground //
 	//                                                        INITIALISATION MAP/WATER                                                        //
 
@@ -242,19 +245,55 @@ func main() {
 		if iterationActive || keys.u == "active" {
 			iterationMade++
 			points_water = []float32{}
-			waterMapNew := make(map[Vec3i32]bool)
-			MoveWater(waterMap, waterMapNew, groundMap)
-			waterMap = waterMapNew
-			for key := range waterMapNew {
-				if waterMapNew[key] {
-					points_water = AddCube(key, cWater, points_water)
+			// waterMapNew := make(map[Vec3i32]bool)
+			// MoveWaterFloodfill(waterMap, waterMapNew, groundMap)
+			// waterMap = waterMapNew
+			// for key := range waterMapNew {
+			// 	if waterMapNew[key] {
+			// 	}
+			// }
+
+			for x := 0; x < simulationSize; x++ {
+				for z := 0; z < simulationSize; z++ {
+					y := simulationSize * 0.3
+					noise := Noise3dSimplex(float64(x), float64(iterationMade)/15, float64(z), n_n3d, a_n3d, freq_n3d, octave_n3d, seed_n3d)
+					noise2 := Noise3dSimplex(float64(x), float64(iterationMade)/15, float64(z), n_n3d, a_n3d, 0.005, octave_n3d, seed_n3d+1)*20 - 15
+					if noise > 0.6 {
+						height := 0
+						// if noise > 0.65 {
+						// 	height++
+						// }
+						if noise > 0.7 {
+							height++
+						}
+						// if noise > 0.75 {
+						// 	height++
+						// }
+						if noise > 0.8 {
+							height++
+						}
+						// if noise > 0.85 {
+						// 	height++
+						// }
+						if noise > 0.9 {
+							height++
+						}
+						points_water = AddCube(Vec3i32{int32(x), int32(y) + int32(noise2), int32(z)}, cWater, points_water)
+						for height > 0 {
+							points_water = AddCube(Vec3i32{int32(x), int32(y - float64(height) + noise2), int32(z)}, cWater, points_water)
+							points_water = AddCube(Vec3i32{int32(x), int32(y + float64(height) + noise2), int32(z)}, cWater, points_water)
+							height--
+						}
+					}
 				}
 			}
+			points_water = AddCube(Vec3i32{0, -5000000, 0}, cWater, points_water)
+
 			gl.BindBuffer(gl.ARRAY_BUFFER, vbo_water)
 			gl.BufferData(gl.ARRAY_BUFFER, 4*len(points_water), gl.Ptr(points_water), gl.DYNAMIC_DRAW)
 		}
 
-		AllScenarios()
+		// AllScenarios()
 		SpawnerScenarios(keys)
 
 		sendBuffers()
